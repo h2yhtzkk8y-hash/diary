@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日記</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cloth:#26303d;      /* 藍の布 */
+  --cloth-ink:#d9dde3;  /* 布の上の文字 */
+  --cloth-sub:#8d97a5;
+  --paper:#fbfaf6;
+  --ink:#22252a;
+  --sub:#8a8f97;
+  --rule:#dfe3e8;
+  --thread:#b89a5e;     /* 栞の色 */
+  --danger:#c15c5c;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --cloth:#181e27;
+    --paper:#e9e7e1;
+    --rule:#cfd3d8;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:var(--cloth);
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 1px, transparent 1px 3px);
+  color:var(--cloth-ink);
+  font-family:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+}
+input,textarea,select,button{font:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer;padding:6px 4px}
+:focus-visible{outline:2px solid var(--thread);outline-offset:3px}
+.view{display:none}
+.view.show{display:block}
+
+/* ---------- 一覧 ---------- */
+.shelf{max-width:960px;margin:0 auto;padding:40px 20px 96px}
+.head{display:flex;align-items:flex-end;gap:22px;margin-bottom:32px;flex-wrap:wrap}
+.head h1{
+  margin:0 8px 0 0;font-size:0;line-height:0;padding-left:6px;flex-shrink:0;
+  border-left:2px solid var(--thread);
+}
+/* 表紙と同じ手書きの題字 */
+.head h1 svg{height:6.4rem;width:auto;display:block;overflow:visible}
+.head h1 path{fill:var(--cloth-ink);stroke:var(--cloth-ink);stroke-width:.35;stroke-linejoin:round}
+.tab{color:var(--cloth-ink);border-bottom:1px solid var(--cloth-sub);padding:6px 2px;font-size:1rem;letter-spacing:.1em}
+.tab[aria-expanded="true"],.tab[aria-pressed="true"]{color:var(--thread);border-color:var(--thread)}
+.search{
+  min-width:140px;max-width:200px;background:transparent;border:none;
+  border-bottom:1px solid var(--cloth-sub);padding:4px 2px;color:var(--cloth-ink);outline:none;margin-left:8px
+}
+.search::placeholder{color:var(--cloth-sub)}
+.trace-panel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-12px 0 28px}
+.trace-panel[hidden]{display:none}
+.trace-panel select{
+  background:transparent;border:none;border-bottom:1px solid var(--cloth-sub);
+  color:var(--cloth-ink);padding:4px 2px;min-width:3.5em
+}
+.trace-panel select option{color:#000}
+.trace-panel select:disabled{opacity:.35}
+.trace-panel span{margin-right:6px}
+.trace-panel button{color:var(--cloth-sub)}
+.trace-panel button:hover{color:var(--cloth-ink)}
+
+/* 頁の並び */
+.pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:28px 22px}
+.page{
+  aspect-ratio:3/4;align-self:start;background:var(--paper);color:var(--ink);
+  border-radius:1px 3px 3px 1px;cursor:pointer;position:relative;overflow:hidden;
+  box-shadow:0 1px 0 rgba(0,0,0,.25), 0 6px 14px rgba(0,0,0,.28);
+  transition:transform .18s ease, box-shadow .18s ease;
+  display:flex;flex-direction:column;
+}
+.page:hover{transform:translateY(-3px);box-shadow:0 1px 0 rgba(0,0,0,.25), 0 12px 22px rgba(0,0,0,.32)}
+/* 日記帳の頁：上に日付欄、下に縦罫 */
+.page .hd{
+  padding:10px 12px 6px;font-size:11px;color:var(--sub);letter-spacing:.08em;
+  text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:3px double var(--rule);
+}
+.page .cols{
+  flex:1;min-height:0;margin:10px 12px 12px;overflow:hidden;writing-mode:vertical-rl;
+  background:repeating-linear-gradient(to left, transparent 0 21px, var(--rule) 21px 22px);
+  -webkit-mask-image:linear-gradient(to left, #000 75%, transparent);
+          mask-image:linear-gradient(to left, #000 75%, transparent);
+}
+.page .ttl{font-weight:600;font-size:14px;line-height:22px}
+.page .ex{font-size:12px;line-height:22px;color:#4a4e55}
+.page.sel{outline:3px solid var(--thread);outline-offset:4px}
+/* 白紙：開いたら画面いっぱいに出る一枚 */
+/* 見開き：左が無地（手で書く）、右が罫線（文字で書く） */
+.spread{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 auto 56px;
+  width:min(100%, calc(80vh * 3 / 2 + 6px));
+}
+.page.blank{display:block;width:100%;aspect-ratio:3/4}
+.page.blank.lined{
+  background-image:repeating-linear-gradient(to bottom, transparent 0 31px, var(--rule) 31px 32px);
+  background-position:0 56px;background-size:100% calc(100% - 88px);background-repeat:no-repeat;
+}
+.page.blank.lined::after{
+  content:"";position:absolute;top:0;right:12%;width:12px;height:42%;
+  background:var(--thread);
+}
+
+/* 目次 */
+.toc{
+  background:var(--paper);color:var(--ink);border-radius:2px;
+  box-shadow:0 1px 0 rgba(0,0,0,.25), 0 10px 30px rgba(0,0,0,.35);
+  padding:36px 44px;max-width:720px;
+}
+.toc h2{margin:0 0 20px;font-size:1.1rem;font-weight:600;letter-spacing:.6em}
+.row{display:flex;align-items:baseline;gap:10px;padding:9px 0;cursor:pointer;border-radius:2px}
+.row:hover .rt{text-decoration:underline;text-underline-offset:4px}
+.row .rt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%}
+.row .lead{flex:1;border-bottom:1px dotted var(--sub);transform:translateY(-4px);min-width:20px}
+.row .rd{color:var(--sub);font-size:.85rem;white-space:nowrap}
+.row.sel .rt{color:var(--thread);font-weight:600}
+.row.sel .rt::before{content:"✓ "}
+.toc .none{color:var(--sub)}
+
+.none{grid-column:1/-1;color:var(--cloth-sub);padding:12px 0}
+/* 手書きの頁の縮小図 */
+.page .inkthumb{flex:1;min-height:0;margin:6px 10px 10px;display:block}
+.page .inkthumb svg{width:100%;height:100%;display:block}
+.page .inkthumb path{fill:none;stroke:#22252a;stroke-linecap:round;stroke-linejoin:round}
+.page .hd .t{color:var(--ink);font-weight:600;margin-left:8px}
+.foot{display:flex;gap:20px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:48px;font-size:.85rem}
+.foot button{color:var(--cloth-sub)}
+.foot button:hover{color:var(--cloth-ink)}
+.foot .bind{color:var(--thread)}
+.bind-status{width:100%;text-align:center;color:var(--cloth-sub);font-size:.78rem}
+/* 配布所（GitHub Pages で開いたとき） */
+.dist{max-width:520px;margin:10vh auto 0;text-align:center;line-height:2}
+.dist p{color:var(--cloth-sub);font-size:.9rem;margin:0 0 24px}
+.dist button{color:var(--thread);font-size:1.1rem;border-bottom:1px solid var(--thread);padding:8px 4px}
+/* 奥付 */
+.colophon{
+  width:100%;text-align:center;color:var(--cloth-sub);font-size:.72rem;letter-spacing:.35em;
+  margin-top:28px;padding-top:14px;border-top:1px solid rgba(141,151,165,.35);
+  max-width:260px;margin-left:auto;margin-right:auto
+}
+
+/* 選択中のバー */
+.selbar{
+  position:fixed;left:0;right:0;bottom:0;display:flex;gap:16px;align-items:center;justify-content:center;
+  flex-wrap:wrap;padding:12px 16px;background:var(--cloth);border-top:2px solid var(--thread);font-size:.9rem
+}
+.selbar[hidden]{display:none}
+.selbar .go{color:var(--thread);font-weight:600}
+
+/* ---------- 書く ---------- */
+.desk{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+.bar{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap;font-size:.9rem}
+.bar button{color:var(--cloth-ink)}
+.bar .del{color:var(--danger)}
+.bar input[type=date]{
+  background:transparent;border:none;border-bottom:1px solid var(--cloth-sub);
+  color:var(--cloth-ink);padding:4px 2px;color-scheme:dark;
+}
+.spacer{flex:1}
+.status{color:var(--cloth-sub);font-size:.8rem}
+.sheet{
+  background:var(--paper);color:var(--ink);border-radius:2px;
+  box-shadow:0 1px 0 rgba(0,0,0,.25), 0 10px 30px rgba(0,0,0,.35);
+  padding:40px 48px 28px;min-height:calc(100vh - 120px);display:flex;flex-direction:column;
+}
+.sheet .when{color:var(--sub);font-size:.85rem;letter-spacing:.1em;margin-bottom:6px}
+.title{
+  font-size:1.45rem;font-weight:600;border:none;background:transparent;outline:none;
+  padding:4px 0 10px;border-bottom:1px solid var(--ink);margin-bottom:8px;
+}
+.title::placeholder{color:#b9bdc3}
+.body{
+  flex:1;border:none;outline:none;resize:none;font-size:1.02rem;
+  line-height:2.2em;padding:0;min-height:50vh;
+  background:transparent repeating-linear-gradient(to bottom,
+    transparent 0, transparent calc(2.2em - 1px), var(--rule) calc(2.2em - 1px), var(--rule) 2.2em);
+  background-attachment:local;
+}
+.meta{color:var(--sub);font-size:.78rem;text-align:right;margin-top:14px}
+#ink{display:none;width:100%;aspect-ratio:3/4;touch-action:none;cursor:crosshair;margin-top:4px}
+.ink-only{display:none}
+.is-ink .ink-only{display:inline-block}
+.is-ink #ink{display:block}
+/* 本文は欄の中でスクロールさせず、書いた分だけ紙を伸ばす */
+.body{overflow:hidden;flex:none}
+.is-ink .text-only{display:none}
+/* 手書き中は文字の選択や長押しメニューを出さない */
+.is-ink, .is-ink *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.is-ink input{-webkit-user-select:text;user-select:text}
+/* 貼った写真 */
+.photos{display:flex;flex-wrap:wrap;gap:14px;margin-top:18px}
+.photos:empty{display:none}
+.photo{
+  width:120px;aspect-ratio:1;object-fit:cover;background:#fff;padding:5px;cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);transform:rotate(-1.5deg)
+}
+.photo:nth-child(2n){transform:rotate(1.2deg)}
+.page .pthumb{
+  position:absolute;left:10px;bottom:10px;width:38%;aspect-ratio:1;object-fit:cover;
+  background:#fff;padding:3px;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:rotate(-3deg);z-index:1
+}
+.lightbox{position:fixed;inset:0;z-index:50;background:rgba(10,12,16,.92);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;padding:16px}
+.lightbox[hidden]{display:none}
+.lightbox img{max-width:100%;max-height:80vh;object-fit:contain;background:#fff;padding:6px}
+.lightbox .row2{display:flex;gap:24px}
+.lightbox button{color:var(--cloth-ink)}
+.lightbox .del{color:var(--danger)}
+.bar .tool[aria-pressed="true"]{color:var(--thread);text-decoration:underline;text-underline-offset:5px}
+
+@media (max-width:600px){
+  .shelf{padding:28px 16px 96px}
+  .pages{grid-template-columns:repeat(2,1fr);gap:18px 14px}
+  .spread{grid-template-columns:1fr;gap:22px}
+  .spread .page.blank.lined{order:-1}   /* 縦に並ぶときは、文字の白紙を上・手書きの白紙を下に */
+  .sheet{padding:28px 20px 20px}
+  .toc{padding:24px 20px}
+}
+@media (prefers-reduced-motion:reduce){ .page{transition:none} }
+
+/* ---------- 表紙（ファイルのサムネイル・プレビュー用。開くと消える） ---------- */
+.cover{min-height:100vh;background:#2a221d;display:flex;align-items:center;justify-content:center;padding:4vh 0 8vh}
+.book{
+  position:relative;height:84vh;width:63vh;max-width:86vw;max-height:115vw;
+  background:#6b4a33;border-radius:2px 4px 4px 2px;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.08) 0 1px, transparent 1px 3px);
+  box-shadow:0 2px 0 rgba(0,0,0,.35), 0 18px 40px rgba(0,0,0,.45);
+}
+/* 題簽 */
+.book .label{
+  position:absolute;top:7%;left:9%;width:21%;height:56%;
+  background:#fbfaf6;padding:6% 0;display:flex;justify-content:center;align-items:center;
+  box-shadow:inset 0 0 0 4px #fbfaf6, inset 0 0 0 5px #3a2e26;
+}
+.book .label svg{width:88%;height:auto;max-height:100%;overflow:visible}
+.book .label path{fill:#1c1714;stroke:#1c1714;stroke-width:.35;stroke-linejoin:round}
+/* 綴じ糸（四つ目綴じ） */
+.book .spine{position:absolute;top:0;bottom:0;right:8%;width:1px;background:#e6dcc6}
+.book .stitch{position:absolute;right:0;width:8%;height:1px;background:#e6dcc6}
+.book .stitch::after{
+  content:"";position:absolute;left:-2px;top:-2px;width:5px;height:5px;border-radius:50%;background:#2a1d14;
+}
+/* 栞 */
+.book .ribbon{position:absolute;bottom:-7%;right:32%;width:2.4%;height:11%;background:#8c2f2a}
+</style>
+</head>
+<body>
+
+<div class="cover" id="cover" aria-hidden="true">
+  <div class="book">
+    <div class="label"><svg viewBox="0 0 100 212" aria-hidden="true"><g transform="translate(49 55) rotate(-4) skewX(-12) translate(-49 -55)"><path d="M28.6 18.0 L28.5 19.9 L28.4 21.7 L28.3 23.6 L28.2 25.5 L28.1 27.4 L27.9 29.3 L27.8 31.3 L27.7 33.2 L28.9 33.2 L28.9 31.3 L29.0 29.4 L29.1 27.5 L29.2 25.6 L29.2 23.7 L29.3 21.8 L29.3 19.9 L29.4 18.0Z"/><path d="M27.7 33.2 L27.6 35.1 L27.4 37.0 L27.3 39.0 L27.1 40.9 L27.0 42.9 L26.8 44.8 L26.6 46.8 L26.3 48.7 L28.4 48.8 L28.4 46.9 L28.5 44.9 L28.5 43.0 L28.6 41.0 L28.6 39.1 L28.7 37.1 L28.8 35.2 L28.9 33.2Z"/><path d="M26.3 48.7 L26.1 50.7 L25.8 52.6 L25.6 54.6 L25.4 56.5 L25.2 58.5 L25.0 60.5 L24.8 62.4 L24.7 64.4 L28.0 64.6 L28.1 62.7 L28.2 60.7 L28.3 58.7 L28.4 56.7 L28.4 54.7 L28.4 52.8 L28.4 50.8 L28.4 48.8Z"/><path d="M24.7 64.4 L24.5 66.4 L24.3 68.3 L24.1 70.3 L23.8 72.3 L23.5 74.2 L23.1 76.2 L22.7 78.1 L22.3 80.1 L28.1 80.5 L28.0 78.5 L27.9 76.5 L27.8 74.5 L27.7 72.6 L27.8 70.6 L27.8 68.6 L27.9 66.6 L28.0 64.6Z"/><path d="M22.3 80.1 L21.9 82.0 L21.5 84.0 L21.2 85.9 L20.9 87.9 L20.8 89.9 L20.6 91.8 L20.8 93.8 L23.8 96.0 L24.2 96.0 L27.5 94.3 L28.0 92.4 L28.1 90.4 L28.2 88.5 L28.3 86.5 L28.3 84.5 L28.2 82.5 L28.1 80.5Z"/><path d="M39.1 15.2 L39.7 15.0 L40.4 14.8 L41.1 14.6 L41.8 14.4 L42.4 14.3 L43.1 14.1 L43.7 13.9 L44.4 13.8 L44.2 13.1 L43.5 13.3 L42.9 13.5 L42.2 13.7 L41.6 13.9 L40.9 14.1 L40.3 14.3 L39.6 14.6 L38.9 14.8Z"/><path d="M44.4 13.8 L45.0 13.7 L45.7 13.5 L46.3 13.4 L46.9 13.3 L47.6 13.2 L48.2 13.1 L48.8 12.9 L49.4 12.8 L49.2 11.7 L48.6 11.9 L48.0 12.0 L47.4 12.2 L46.7 12.4 L46.1 12.5 L45.5 12.7 L44.8 12.9 L44.2 13.1Z"/><path d="M49.4 12.8 L50.0 12.8 L50.6 12.7 L51.2 12.6 L51.8 12.5 L52.4 12.4 L53.0 12.4 L53.6 12.3 L54.2 12.2 L54.0 10.9 L53.4 10.9 L52.9 11.0 L52.3 11.1 L51.7 11.2 L51.0 11.4 L50.4 11.5 L49.8 11.6 L49.2 11.7Z"/><path d="M54.2 12.2 L54.8 12.2 L55.4 12.1 L55.9 12.0 L56.5 11.9 L57.1 11.9 L57.6 11.8 L58.2 11.8 L58.7 11.8 L58.6 10.5 L58.1 10.5 L57.5 10.6 L56.9 10.6 L56.4 10.6 L55.8 10.7 L55.2 10.7 L54.6 10.8 L54.0 10.9Z"/><path d="M58.7 11.8 L59.3 11.7 L59.8 11.7 L60.4 11.7 L60.9 11.6 L61.4 11.6 L62.0 11.6 L62.5 11.6 L63.0 11.6 L63.0 10.4 L62.5 10.4 L61.9 10.4 L61.4 10.4 L60.9 10.4 L60.3 10.4 L59.8 10.5 L59.2 10.5 L58.6 10.5Z"/><path d="M63.0 11.6 L63.3 11.7 L63.6 11.7 L63.9 11.8 L64.2 12.0 L64.4 12.1 L64.7 12.2 L64.9 12.4 L65.0 12.5 L66.0 10.6 L65.7 10.5 L65.3 10.4 L64.9 10.4 L64.6 10.3 L64.2 10.3 L63.8 10.3 L63.4 10.4 L63.0 10.4Z"/><path d="M65.0 12.5 L65.2 12.7 L65.4 12.9 L65.5 13.0 L65.6 13.2 L65.7 13.4 L65.8 13.6 L65.9 13.8 L66.0 14.0 L68.5 12.3 L68.2 12.0 L68.0 11.8 L67.7 11.5 L67.4 11.3 L67.1 11.1 L66.7 10.9 L66.4 10.7 L66.0 10.6Z"/><path d="M66.0 14.0 L66.1 14.2 L66.2 14.4 L66.3 14.7 L66.4 14.9 L66.4 15.2 L66.5 15.4 L66.6 15.7 L66.6 16.0 L70.0 15.1 L69.9 14.7 L69.7 14.3 L69.6 13.9 L69.4 13.6 L69.2 13.3 L69.0 12.9 L68.7 12.6 L68.5 12.3Z"/><path d="M66.6 16.0 L66.7 16.3 L66.7 16.6 L66.8 17.0 L66.8 17.3 L66.8 17.6 L66.9 18.0 L66.9 18.4 L66.9 18.7 L70.8 18.4 L70.7 17.9 L70.7 17.5 L70.6 17.1 L70.5 16.7 L70.4 16.2 L70.3 15.8 L70.2 15.4 L70.0 15.1Z"/><path d="M66.9 18.7 L66.9 19.1 L66.9 19.5 L66.9 19.9 L66.9 20.3 L66.9 20.7 L66.9 21.1 L66.9 21.6 L66.9 22.1 L71.1 21.9 L71.1 21.5 L71.1 21.1 L71.0 20.6 L71.0 20.2 L71.0 19.7 L70.9 19.2 L70.9 18.8 L70.8 18.4Z"/><path d="M66.9 22.1 L67.0 23.9 L67.1 25.7 L67.2 27.5 L67.3 29.3 L67.4 31.1 L67.5 32.9 L67.6 34.7 L67.6 36.5 L71.6 36.3 L71.5 34.5 L71.4 32.7 L71.3 30.9 L71.3 29.1 L71.3 27.3 L71.2 25.5 L71.2 23.7 L71.1 21.9Z"/><path d="M67.6 36.5 L67.6 38.3 L67.6 40.1 L67.5 41.9 L67.4 43.7 L67.4 45.5 L67.3 47.4 L67.2 49.2 L67.2 51.0 L73.2 50.7 L73.0 48.9 L72.8 47.1 L72.6 45.3 L72.4 43.5 L72.1 41.7 L71.9 39.9 L71.7 38.1 L71.6 36.3Z"/><path d="M67.2 51.0 L67.3 52.8 L67.4 54.6 L67.5 56.4 L67.6 58.2 L67.8 60.1 L67.9 61.9 L68.0 63.7 L68.1 65.5 L73.5 65.3 L73.4 63.5 L73.4 61.7 L73.3 59.8 L73.4 58.0 L73.3 56.2 L73.3 54.4 L73.3 52.6 L73.2 50.7Z"/><path d="M68.1 65.5 L68.1 67.4 L68.1 69.2 L68.0 71.0 L67.8 72.9 L67.7 74.7 L67.6 76.6 L67.5 78.4 L67.5 80.3 L75.3 80.0 L75.2 78.1 L74.9 76.3 L74.6 74.4 L74.4 72.6 L74.1 70.8 L73.8 69.0 L73.6 67.1 L73.5 65.3Z"/><path d="M67.5 80.3 L67.5 82.1 L67.6 84.0 L67.7 85.8 L67.9 87.7 L68.1 89.5 L69.0 91.4 L70.0 93.2 L71.8 95.0 L72.2 95.0 L73.9 93.0 L74.7 91.1 L75.5 89.2 L75.5 87.4 L75.5 85.5 L75.5 83.7 L75.5 81.8 L75.3 80.0Z"/><path d="M31.2 53.8 L31.9 53.9 L32.5 54.0 L33.1 54.0 L33.8 54.1 L34.4 54.1 L35.0 54.0 L35.6 53.9 L36.2 53.7 L35.4 50.1 L34.8 50.2 L34.2 50.3 L33.6 50.5 L33.0 50.8 L32.5 51.1 L31.9 51.5 L31.3 51.8 L30.8 52.2Z"/><path d="M36.2 53.7 L36.7 53.5 L37.3 53.3 L37.9 53.3 L38.5 53.3 L39.1 53.3 L39.7 53.2 L40.3 53.1 L40.9 53.0 L40.3 49.2 L39.7 49.3 L39.1 49.4 L38.5 49.5 L37.9 49.7 L37.3 49.9 L36.7 50.1 L36.1 50.1 L35.4 50.1Z"/><path d="M40.9 53.0 L41.5 52.9 L42.1 52.7 L42.6 52.6 L43.2 52.5 L43.8 52.4 L44.4 52.3 L45.0 52.2 L45.6 52.1 L45.2 48.8 L44.6 48.9 L44.0 48.9 L43.4 48.9 L42.8 49.0 L42.2 49.0 L41.5 49.1 L40.9 49.1 L40.3 49.2Z"/><path d="M45.6 52.1 L46.2 52.0 L46.7 52.0 L47.3 51.9 L47.9 51.8 L48.5 51.7 L49.1 51.6 L49.7 51.6 L50.3 51.5 L50.1 48.7 L49.5 48.7 L48.9 48.7 L48.3 48.7 L47.7 48.7 L47.1 48.8 L46.5 48.8 L45.8 48.8 L45.2 48.8Z"/><path d="M50.3 51.5 L50.9 51.5 L51.5 51.4 L52.0 51.4 L52.6 51.3 L53.2 51.3 L53.8 51.3 L54.4 51.3 L55.0 51.3 L55.0 48.7 L54.4 48.8 L53.8 48.7 L53.2 48.7 L52.6 48.7 L52.0 48.7 L51.3 48.7 L50.7 48.7 L50.1 48.7Z"/><path d="M55.0 51.3 L55.1 51.6 L55.1 52.0 L54.9 52.3 L54.6 52.5 L54.2 52.6 L53.7 52.5 L53.3 52.2 L53.0 51.9 L59.8 49.8 L59.4 49.1 L58.8 48.5 L58.1 48.1 L57.3 48.0 L56.6 48.0 L56.0 48.2 L55.5 48.4 L55.0 48.7Z"/><path d="M53.0 51.9 L52.9 51.5 L52.8 51.2 L53.8 51.1 L54.6 51.3 L55.2 51.6 L55.6 52.0 L55.5 52.1 L55.5 52.2 L56.8 52.9 L56.8 52.7 L57.0 52.5 L57.5 52.4 L58.3 52.2 L59.2 51.8 L60.2 51.3 L60.1 50.5 L59.8 49.8Z"/><path d="M55.5 52.2 L55.4 52.3 L55.4 52.4 L55.3 52.6 L55.2 52.7 L55.1 52.8 L55.0 53.0 L54.9 53.1 L54.8 53.2 L55.8 54.2 L55.9 54.0 L56.1 53.8 L56.2 53.7 L56.3 53.5 L56.5 53.4 L56.6 53.2 L56.7 53.0 L56.8 52.9Z"/><path d="M54.8 53.2 L54.6 53.4 L54.5 53.5 L53.9 54.1 L53.1 54.7 L52.4 55.4 L51.7 56.1 L51.0 56.8 L50.3 57.5 L51.4 58.6 L52.1 57.8 L52.8 57.1 L53.4 56.4 L54.1 55.8 L54.8 55.1 L55.5 54.5 L55.6 54.3 L55.8 54.2Z"/><path d="M50.3 57.5 L49.6 58.3 L48.8 59.0 L48.1 59.8 L47.4 60.7 L46.7 61.5 L46.0 62.4 L45.3 63.2 L44.5 64.1 L45.7 65.0 L46.4 64.2 L47.1 63.3 L47.8 62.5 L48.6 61.7 L49.3 60.9 L50.0 60.1 L50.7 59.3 L51.4 58.6Z"/><path d="M44.5 64.1 L43.8 65.0 L43.1 66.0 L42.4 66.9 L41.7 67.8 L41.0 68.8 L40.3 69.7 L39.6 70.7 L39.0 71.7 L40.0 72.4 L40.7 71.5 L41.4 70.5 L42.1 69.6 L42.8 68.6 L43.5 67.7 L44.2 66.8 L45.0 65.9 L45.7 65.0Z"/><path d="M39.0 71.7 L38.3 72.6 L37.6 73.6 L36.9 74.6 L36.2 75.6 L35.6 76.6 L34.9 77.6 L34.3 78.6 L33.7 79.6 L35.0 80.4 L35.6 79.4 L36.2 78.4 L36.8 77.4 L37.4 76.4 L38.1 75.4 L38.7 74.4 L39.4 73.4 L40.0 72.4Z"/><path d="M33.7 79.6 L33.0 80.6 L32.4 81.6 L31.9 82.6 L31.3 83.7 L30.7 84.7 L30.2 85.7 L29.7 86.7 L29.2 87.7 L30.7 88.4 L31.2 87.4 L31.7 86.4 L32.2 85.4 L32.7 84.4 L33.3 83.4 L33.8 82.4 L34.4 81.4 L35.0 80.4Z"/><path d="M29.2 87.7 L28.8 88.7 L25.7 91.9 L30.1 91.5 L31.1 91.4 L32.1 91.3 L33.0 91.2 L34.0 91.1 L35.0 91.0 L34.8 88.1 L33.8 88.2 L32.8 88.2 L31.8 88.3 L30.8 88.3 L29.9 88.3 L32.3 88.1 L30.2 89.4 L30.7 88.4Z"/><path d="M35.0 91.0 L36.0 90.9 L37.0 90.8 L38.0 90.7 L39.0 90.7 L40.1 90.6 L41.1 90.6 L42.1 90.5 L43.1 90.5 L42.9 87.4 L41.9 87.5 L40.9 87.6 L39.8 87.7 L38.8 87.8 L37.8 87.9 L36.8 88.0 L35.8 88.0 L34.8 88.1Z"/><path d="M43.1 90.5 L44.2 90.5 L45.2 90.4 L46.2 90.4 L47.3 90.3 L48.3 90.3 L49.4 90.2 L50.4 90.2 L51.5 90.1 L51.2 86.6 L50.2 86.7 L49.1 86.8 L48.1 86.9 L47.0 87.0 L46.0 87.1 L45.0 87.2 L43.9 87.3 L42.9 87.4Z"/><path d="M51.5 90.1 L52.5 90.0 L53.6 90.0 L54.7 89.9 L55.7 89.8 L56.8 89.7 L57.9 89.5 L59.0 89.3 L60.0 89.1 L59.8 86.4 L58.7 86.3 L57.7 86.3 L56.6 86.3 L55.5 86.3 L54.4 86.4 L53.4 86.4 L52.3 86.5 L51.2 86.6Z"/><path d="M60.0 89.1 L61.1 89.0 L62.2 88.8 L63.3 88.7 L64.4 88.5 L65.5 88.4 L66.6 88.2 L67.7 88.1 L68.8 87.9 L68.7 86.4 L67.6 86.4 L66.5 86.4 L65.4 86.4 L64.2 86.4 L63.1 86.4 L62.0 86.4 L60.9 86.4 L59.8 86.4Z"/><path d="M68.8 87.9 L69.9 87.8 L71.0 87.6 L71.0 86.4 L69.8 86.4 L68.7 86.4Z"/></g><g transform="translate(51 155) rotate(-4) skewX(-12) translate(-51 -155)"><path d="M17.0 110.0 L15.9 111.5 L16.1 111.8 L16.2 112.1 L16.3 112.3 L16.5 112.6 L16.7 112.8 L16.8 113.1 L17.0 113.3 L22.6 108.5 L22.3 108.3 L22.0 108.0 L21.8 107.8 L21.5 107.5 L21.2 107.3 L20.8 107.1 L20.5 107.0 L19.0 108.0Z"/><path d="M17.0 113.3 L17.1 113.6 L17.3 113.8 L17.5 114.1 L17.6 114.4 L17.8 114.6 L17.9 114.9 L18.1 115.1 L18.2 115.4 L24.7 110.8 L24.5 110.5 L24.2 110.2 L24.0 109.9 L23.7 109.6 L23.4 109.3 L23.1 109.0 L22.9 108.8 L22.6 108.5Z"/><path d="M18.2 115.4 L18.3 115.7 L18.5 115.9 L18.6 116.2 L18.8 116.4 L18.9 116.7 L19.0 117.0 L19.1 117.2 L19.3 117.5 L26.7 113.5 L26.4 113.1 L26.2 112.8 L26.0 112.4 L25.7 112.1 L25.5 111.7 L25.3 111.4 L25.0 111.1 L24.7 110.8Z"/><path d="M19.3 117.5 L19.4 117.7 L19.5 118.0 L19.6 118.3 L19.8 118.5 L19.9 118.8 L20.0 119.1 L20.1 119.3 L20.2 119.6 L28.1 116.6 L28.0 116.2 L27.8 115.8 L27.6 115.4 L27.5 115.0 L27.3 114.6 L27.1 114.2 L26.9 113.8 L26.7 113.5Z"/><path d="M20.2 119.6 L20.3 119.9 L20.4 120.1 L20.6 120.4 L20.9 120.6 L21.5 120.8 L22.1 120.9 L22.8 121.1 L23.7 121.3 L26.3 120.7 L27.1 120.1 L27.6 119.6 L28.0 119.0 L28.4 118.5 L28.5 117.9 L28.4 117.5 L28.3 117.1 L28.1 116.6Z"/><path d="M7.2 130.8 L8.1 130.8 L9.0 130.7 L9.8 130.6 L10.7 130.6 L11.5 130.5 L12.4 130.4 L13.2 130.3 L14.0 130.2 L13.1 126.4 L12.3 126.7 L11.5 127.0 L10.7 127.3 L9.9 127.7 L9.1 128.0 L8.3 128.4 L7.6 128.8 L6.8 129.2Z"/><path d="M14.0 130.2 L14.9 130.0 L15.7 129.8 L16.5 129.5 L17.2 129.2 L18.0 129.0 L18.8 128.8 L19.7 128.7 L20.5 128.6 L19.8 125.2 L19.0 125.4 L18.2 125.6 L17.4 125.8 L16.5 125.9 L15.7 126.0 L14.8 126.1 L14.0 126.2 L13.1 126.4Z"/><path d="M20.5 128.6 L21.3 128.4 L22.1 128.3 L22.9 128.1 L23.7 127.9 L24.5 127.7 L25.3 127.6 L26.1 127.4 L26.8 127.2 L26.3 124.1 L25.5 124.2 L24.7 124.4 L23.9 124.5 L23.1 124.6 L22.2 124.7 L21.4 124.8 L20.6 125.0 L19.8 125.2Z"/><path d="M26.8 127.2 L27.6 127.1 L28.4 126.9 L29.2 126.8 L30.0 126.7 L30.8 126.6 L31.5 126.5 L32.3 126.4 L33.1 126.3 L32.7 123.2 L31.9 123.3 L31.1 123.4 L30.3 123.5 L29.5 123.6 L28.7 123.8 L27.9 123.9 L27.1 124.0 L26.3 124.1Z"/><path d="M33.1 126.3 L33.9 126.2 L34.6 126.1 L35.4 126.1 L36.2 126.0 L36.9 125.9 L37.7 125.9 L38.4 125.8 L39.1 125.7 L38.9 122.3 L38.1 122.4 L37.3 122.5 L36.5 122.6 L35.8 122.7 L35.0 122.8 L34.2 122.9 L33.5 123.0 L32.7 123.2Z"/><path d="M39.1 125.7 L39.1 125.7 L39.2 125.9 L39.3 126.1 L39.3 126.4 L39.2 126.6 L39.2 126.7 L39.0 126.9 L38.9 127.0 L42.0 121.6 L41.6 121.6 L41.1 121.6 L40.7 121.7 L40.3 121.8 L40.0 121.9 L39.6 122.1 L39.3 122.3 L38.9 122.3Z"/><path d="M38.9 127.0 L38.5 127.1 L38.2 127.2 L37.7 127.1 L37.2 126.8 L36.9 126.4 L36.8 125.9 L37.1 125.7 L38.1 125.6 L44.3 126.5 L45.4 126.1 L45.7 125.3 L45.5 124.3 L45.0 123.3 L44.3 122.5 L43.4 122.0 L42.6 121.7 L42.0 121.6Z"/><path d="M38.1 125.6 L38.7 125.7 L39.3 125.9 L39.8 126.1 L40.2 126.4 L40.2 126.5 L40.2 126.6 L40.1 126.8 L40.0 126.9 L41.4 127.8 L41.5 127.6 L41.6 127.4 L41.7 127.2 L41.9 127.1 L42.4 127.0 L43.0 126.9 L43.7 126.7 L44.3 126.5Z"/><path d="M40.0 126.9 L39.9 127.1 L39.8 127.2 L39.7 127.4 L39.6 127.5 L39.5 127.7 L39.3 127.8 L39.2 128.0 L39.0 128.1 L39.9 129.3 L40.1 129.1 L40.3 128.9 L40.5 128.7 L40.7 128.6 L40.9 128.4 L41.1 128.2 L41.2 128.0 L41.4 127.8Z"/><path d="M39.0 128.1 L38.8 128.3 L38.6 128.4 L38.0 128.8 L37.4 129.2 L36.8 129.6 L36.2 129.9 L35.6 130.3 L35.0 130.7 L35.7 131.8 L36.3 131.4 L36.9 131.1 L37.5 130.7 L38.1 130.3 L38.8 129.9 L39.4 129.6 L39.6 129.4 L39.9 129.3Z"/><path d="M35.0 130.7 L34.4 131.1 L33.8 131.5 L33.2 131.8 L32.6 132.2 L31.9 132.6 L31.3 133.0 L30.7 133.3 L30.1 133.7 L30.7 134.7 L31.3 134.3 L31.9 134.0 L32.5 133.6 L33.2 133.3 L33.8 132.9 L34.4 132.5 L35.0 132.2 L35.7 131.8Z"/><path d="M30.1 133.7 L29.4 134.1 L28.8 134.4 L28.2 134.8 L27.6 135.2 L27.0 135.5 L26.3 135.9 L25.7 136.2 L25.1 136.6 L25.7 137.6 L26.3 137.2 L26.9 136.9 L27.5 136.5 L28.2 136.2 L28.8 135.8 L29.4 135.4 L30.0 135.1 L30.7 134.7Z"/><path d="M25.1 136.6 L24.5 136.9 L23.9 137.3 L23.3 137.6 L22.7 137.9 L22.1 138.3 L21.5 138.6 L20.9 138.9 L20.3 139.3 L20.9 140.4 L21.5 140.0 L22.1 139.7 L22.7 139.4 L23.3 139.0 L23.9 138.7 L24.5 138.3 L25.1 137.9 L25.7 137.6Z"/><path d="M20.3 139.3 L19.7 139.6 L19.1 139.9 L18.5 140.2 L17.9 140.6 L17.4 140.9 L16.8 141.2 L16.3 141.5 L15.7 141.8 L16.4 143.0 L16.9 142.7 L17.5 142.4 L18.0 142.0 L18.6 141.7 L19.2 141.4 L19.7 141.1 L20.3 140.7 L20.9 140.4Z"/><path d="M15.7 141.8 L15.2 142.1 L14.3 142.6 L16.1 144.8 L16.5 144.7 L17.0 144.5 L17.4 144.4 L17.8 144.2 L18.3 144.1 L17.2 140.2 L16.8 140.4 L16.3 140.5 L15.8 140.6 L15.3 140.7 L14.8 140.9 L15.7 143.4 L15.9 143.3 L16.4 143.0Z"/><path d="M18.3 144.1 L18.7 144.0 L19.2 143.8 L19.6 143.7 L20.1 143.6 L20.5 143.4 L21.0 143.3 L21.4 143.2 L21.9 143.1 L21.3 139.6 L20.8 139.6 L20.2 139.7 L19.7 139.8 L19.2 139.8 L18.7 139.9 L18.2 140.0 L17.7 140.1 L17.2 140.2Z"/><path d="M21.9 143.1 L22.4 142.9 L22.8 142.8 L23.3 142.7 L23.8 142.6 L24.2 142.5 L24.7 142.4 L25.1 142.4 L25.6 142.3 L25.3 139.3 L24.8 139.3 L24.3 139.3 L23.8 139.3 L23.3 139.4 L22.8 139.4 L22.3 139.5 L21.8 139.5 L21.3 139.6Z"/><path d="M25.6 142.3 L26.1 142.2 L26.5 142.1 L27.0 142.1 L27.5 142.0 L27.9 142.0 L28.4 141.9 L28.9 141.8 L29.3 141.9 L29.4 139.3 L28.9 139.4 L28.4 139.3 L27.9 139.3 L27.4 139.3 L26.9 139.3 L26.4 139.3 L25.8 139.3 L25.3 139.3Z"/><path d="M29.3 141.9 L29.8 141.9 L30.2 142.0 L30.7 142.1 L31.1 142.2 L31.6 142.3 L32.0 142.4 L32.4 142.5 L32.9 142.6 L33.3 139.2 L32.8 139.2 L32.3 139.2 L31.8 139.2 L31.3 139.2 L30.8 139.2 L30.3 139.2 L29.9 139.3 L29.4 139.3Z"/><path d="M32.9 142.6 L33.3 142.7 L33.5 143.0 L32.8 143.4 L32.6 143.5 L32.3 143.6 L32.1 143.6 L31.8 143.5 L31.5 143.3 L38.3 140.6 L37.8 139.9 L37.1 139.3 L36.5 139.0 L35.9 138.8 L35.5 138.7 L34.5 139.0 L33.8 139.2 L33.3 139.2Z"/><path d="M31.5 143.3 L31.3 143.1 L31.2 142.9 L31.1 142.7 L31.5 142.6 L32.0 142.6 L32.5 142.7 L32.9 142.8 L33.3 143.0 L36.6 143.9 L37.0 143.8 L37.5 143.6 L38.0 143.3 L38.5 143.0 L39.0 142.6 L38.9 142.1 L38.7 141.4 L38.3 140.6Z"/><path d="M33.3 143.0 L33.6 143.2 L33.9 143.4 L34.0 143.7 L34.0 143.8 L33.9 144.0 L33.8 144.1 L33.7 144.3 L33.6 144.4 L34.9 145.3 L35.0 145.1 L35.1 144.9 L35.3 144.7 L35.4 144.5 L35.5 144.3 L35.7 144.2 L36.2 144.1 L36.6 143.9Z"/><path d="M33.6 144.4 L33.5 144.6 L33.4 144.7 L33.3 144.9 L33.2 145.0 L33.0 145.2 L32.9 145.4 L32.7 145.5 L32.6 145.7 L33.5 146.7 L33.7 146.6 L33.9 146.4 L34.1 146.2 L34.3 146.0 L34.4 145.8 L34.6 145.6 L34.7 145.5 L34.9 145.3Z"/><path d="M32.6 145.7 L32.4 145.8 L32.2 146.0 L32.0 146.1 L31.8 146.3 L31.6 146.4 L31.1 146.8 L30.6 147.2 L30.2 147.6 L31.1 148.7 L31.6 148.3 L32.0 147.9 L32.4 147.6 L32.6 147.4 L32.9 147.3 L33.1 147.1 L33.3 146.9 L33.5 146.7Z"/><path d="M30.2 147.6 L29.7 147.9 L29.3 148.3 L28.8 148.7 L28.3 149.1 L27.9 149.4 L27.4 149.8 L26.9 150.2 L26.5 150.6 L27.3 151.7 L27.8 151.3 L28.3 150.9 L28.8 150.6 L29.2 150.2 L29.7 149.8 L30.2 149.4 L30.6 149.1 L31.1 148.7Z"/><path d="M26.5 150.6 L26.0 151.0 L25.5 151.3 L25.1 151.7 L24.6 152.1 L24.1 152.5 L23.7 152.9 L23.2 153.2 L22.8 153.6 L23.6 154.6 L24.1 154.3 L24.5 153.9 L25.0 153.5 L25.5 153.2 L25.9 152.8 L26.4 152.4 L26.9 152.0 L27.3 151.7Z"/><path d="M22.8 153.6 L22.3 154.0 L21.9 154.4 L21.4 154.8 L21.0 155.1 L20.6 155.5 L20.1 155.9 L19.7 156.3 L19.3 156.7 L20.1 157.6 L20.5 157.2 L21.0 156.8 L21.4 156.5 L21.8 156.1 L22.3 155.7 L22.7 155.4 L23.2 155.0 L23.6 154.6Z"/><path d="M19.3 156.7 L18.9 157.0 L18.5 157.4 L18.1 157.8 L17.7 158.2 L17.3 158.5 L16.9 158.9 L16.5 159.3 L16.2 159.7 L17.1 160.6 L17.5 160.2 L17.8 159.8 L18.2 159.5 L18.6 159.1 L18.9 158.7 L19.3 158.3 L19.7 158.0 L20.1 157.6Z"/><path d="M16.2 159.7 L15.8 160.1 L15.5 160.4 L15.1 160.8 L14.8 161.2 L14.1 161.7 L12.1 162.3 L11.9 162.9 L11.7 163.5 L17.8 164.1 L17.8 163.5 L17.8 162.9 L15.9 162.3 L15.8 162.1 L16.1 161.7 L16.4 161.3 L16.8 160.9 L17.1 160.6Z"/><path d="M11.7 163.5 L11.6 164.1 L11.4 164.7 L11.3 165.3 L11.1 165.9 L11.0 166.5 L10.8 167.1 L10.7 167.8 L10.5 168.4 L18.3 168.8 L18.2 168.2 L18.1 167.7 L18.1 167.1 L18.0 166.5 L18.0 165.9 L17.9 165.3 L17.9 164.7 L17.8 164.1Z"/><path d="M10.5 168.4 L10.4 169.0 L10.3 169.6 L10.2 170.2 L10.1 170.9 L10.0 171.5 L9.9 172.1 L9.9 172.7 L9.8 173.4 L18.7 173.4 L18.6 172.9 L18.6 172.3 L18.5 171.7 L18.5 171.1 L18.4 170.6 L18.4 170.0 L18.3 169.4 L18.3 168.8Z"/><path d="M9.8 173.4 L9.8 174.0 L9.8 174.6 L9.9 175.3 L9.9 175.9 L10.0 176.5 L10.1 177.1 L10.1 177.8 L10.2 178.4 L18.5 178.0 L18.5 177.4 L18.5 176.9 L18.6 176.3 L18.6 175.7 L18.6 175.1 L18.7 174.6 L18.7 174.0 L18.7 173.4Z"/><path d="M10.2 178.4 L10.3 179.0 L10.4 179.6 L10.5 180.2 L10.6 180.9 L10.7 181.5 L10.8 182.1 L10.9 182.7 L11.0 183.3 L18.3 182.7 L18.3 182.1 L18.3 181.5 L18.3 180.9 L18.3 180.3 L18.4 179.8 L18.4 179.2 L18.4 178.6 L18.5 178.0Z"/><path d="M11.0 183.3 L11.1 184.0 L11.2 184.6 L11.3 185.2 L11.4 185.8 L15.0 187.3 L16.2 185.8 L16.4 185.1 L16.7 184.5 L14.7 183.8 L14.5 184.4 L14.3 185.0 L15.0 184.7 L18.4 185.0 L18.4 184.4 L18.3 183.8 L18.3 183.2 L18.3 182.7Z"/><path d="M16.7 184.5 L16.9 183.9 L17.1 183.3 L17.4 182.7 L17.7 182.0 L17.9 181.4 L18.2 180.8 L18.5 180.2 L18.8 179.5 L16.6 178.7 L16.4 179.3 L16.2 180.0 L15.9 180.6 L15.7 181.3 L15.4 181.9 L15.2 182.5 L15.0 183.2 L14.7 183.8Z"/><path d="M18.8 179.5 L19.0 178.9 L19.3 178.3 L19.6 177.6 L19.9 177.0 L20.2 176.4 L20.5 175.8 L20.8 175.2 L21.1 174.6 L18.8 173.4 L18.5 174.1 L18.2 174.7 L17.9 175.4 L17.7 176.0 L17.4 176.7 L17.1 177.3 L16.9 178.0 L16.6 178.7Z"/><path d="M21.1 174.6 L21.5 174.0 L21.8 173.4 L22.1 172.8 L22.4 172.2 L22.7 171.6 L23.0 171.0 L23.3 170.5 L23.7 169.9 L21.2 168.5 L20.9 169.1 L20.6 169.7 L20.2 170.3 L19.9 170.9 L19.6 171.5 L19.3 172.2 L19.0 172.8 L18.8 173.4Z"/><path d="M23.7 169.9 L24.0 169.4 L24.3 168.9 L24.6 168.3 L25.0 167.8 L25.3 167.4 L25.6 166.9 L26.0 166.4 L26.3 166.0 L24.0 164.2 L23.7 164.7 L23.3 165.2 L22.9 165.7 L22.6 166.3 L22.2 166.8 L21.9 167.4 L21.5 167.9 L21.2 168.5Z"/><path d="M26.3 166.0 L26.7 165.6 L27.0 165.1 L27.3 164.8 L27.7 164.4 L28.0 164.1 L28.2 164.1 L28.5 164.0 L28.8 163.8 L27.0 161.0 L26.7 161.2 L26.4 161.4 L26.0 161.9 L25.6 162.4 L25.2 162.8 L24.8 163.3 L24.4 163.7 L24.0 164.2Z"/><path d="M28.8 163.8 L29.0 163.7 L29.3 163.5 L29.5 163.4 L29.7 163.3 L30.0 163.2 L30.2 163.1 L30.4 163.1 L30.6 163.0 L29.8 159.8 L29.5 159.9 L29.1 160.0 L28.8 160.1 L28.4 160.2 L28.1 160.4 L27.7 160.6 L27.4 160.8 L27.0 161.0Z"/><path d="M30.6 163.0 L30.8 162.9 L31.0 162.8 L31.2 162.7 L31.3 162.6 L31.5 162.5 L31.7 162.7 L31.8 162.9 L31.9 163.1 L32.6 159.5 L32.2 159.7 L31.9 159.8 L31.6 160.0 L31.2 159.9 L30.9 159.8 L30.5 159.8 L30.2 159.8 L29.8 159.8Z"/><path d="M31.9 163.1 L32.0 163.3 L32.1 163.5 L32.1 163.6 L32.1 163.8 L32.1 163.9 L32.0 164.1 L32.0 164.2 L31.9 164.3 L35.8 159.9 L35.4 159.7 L35.0 159.6 L34.6 159.5 L34.2 159.4 L33.8 159.4 L33.4 159.4 L33.0 159.5 L32.6 159.5Z"/><path d="M31.9 164.3 L31.8 164.4 L31.7 164.4 L31.7 164.5 L31.6 164.5 L31.5 164.6 L31.4 164.6 L31.4 164.6 L31.3 164.7 L38.3 162.6 L38.1 162.2 L37.9 161.8 L37.6 161.4 L37.3 161.0 L37.0 160.7 L36.6 160.4 L36.2 160.1 L35.8 159.9Z"/><path d="M31.3 164.7 L31.3 164.7 L31.2 164.8 L31.2 164.8 L31.2 164.9 L31.1 165.0 L31.2 165.5 L31.3 165.9 L31.3 166.4 L38.6 166.7 L38.7 166.2 L38.8 165.6 L38.9 165.0 L38.8 164.5 L38.7 164.0 L38.6 163.5 L38.5 163.1 L38.3 162.6Z"/><path d="M31.3 166.4 L31.4 166.9 L31.4 167.4 L31.4 167.9 L31.5 168.3 L31.5 168.8 L31.5 169.3 L31.6 169.8 L31.6 170.3 L37.6 171.2 L37.7 170.6 L37.9 170.1 L38.0 169.5 L38.2 169.0 L38.3 168.4 L38.4 167.9 L38.5 167.3 L38.6 166.7Z"/><path d="M31.6 170.3 L31.6 170.8 L31.6 171.3 L31.6 171.8 L31.7 172.3 L31.7 172.7 L31.7 173.2 L31.7 173.7 L31.7 174.2 L35.8 175.3 L36.1 174.8 L36.3 174.3 L36.5 173.8 L36.8 173.3 L37.0 172.8 L37.2 172.2 L37.4 171.7 L37.6 171.2Z"/><path d="M31.7 174.2 L31.7 174.7 L31.7 175.2 L31.7 175.7 L31.7 176.2 L31.7 176.7 L31.7 177.2 L31.6 177.7 L31.6 178.2 L33.6 178.9 L33.9 178.5 L34.1 178.1 L34.4 177.6 L34.7 177.2 L35.0 176.7 L35.3 176.2 L35.5 175.8 L35.8 175.3Z"/><path d="M31.6 178.2 L31.5 178.7 L31.4 179.2 L31.4 179.6 L31.2 180.1 L31.0 180.5 L30.9 180.9 L30.7 181.3 L30.5 181.7 L31.7 182.3 L31.9 181.9 L32.1 181.5 L32.3 181.1 L32.5 180.6 L32.7 180.2 L33.0 179.8 L33.3 179.4 L33.6 178.9Z"/><path d="M30.5 181.7 L30.3 182.2 L30.1 182.5 L29.9 182.9 L29.7 183.3 L29.6 183.6 L29.5 183.7 L29.1 183.9 L28.7 184.0 L29.0 184.8 L29.4 184.7 L29.8 184.6 L30.4 184.4 L30.7 183.9 L31.0 183.5 L31.2 183.1 L31.4 182.7 L31.7 182.3Z"/><path d="M28.7 184.0 L28.3 184.1 L28.0 184.3 L27.6 184.4 L27.2 184.5 L26.8 184.6 L26.4 184.7 L26.0 184.8 L25.6 184.8 L25.8 185.6 L26.2 185.5 L26.6 185.4 L27.0 185.4 L27.4 185.3 L27.8 185.2 L28.2 185.1 L28.6 185.0 L29.0 184.8Z"/><path d="M25.6 184.8 L25.2 184.9 L24.9 185.0 L24.5 185.1 L24.1 185.1 L23.7 185.2 L23.3 185.2 L22.9 185.2 L22.5 185.3 L22.5 185.9 L22.9 185.9 L23.3 185.9 L23.7 185.9 L24.2 185.8 L24.6 185.8 L25.0 185.7 L25.4 185.7 L25.8 185.6Z"/><path d="M22.5 185.3 L22.1 185.3 L21.7 185.3 L21.3 185.3 L21.0 185.3 L20.6 185.3 L20.2 185.3 L19.8 185.3 L19.4 185.3 L19.4 185.9 L19.8 186.0 L20.2 186.0 L20.6 186.0 L21.0 186.0 L21.3 186.0 L21.7 186.0 L22.1 186.0 L22.5 185.9Z"/><path d="M19.4 185.3 L19.1 185.3 L18.7 185.3 L18.4 185.2 L18.0 185.2 L17.7 185.1 L17.3 185.1 L17.0 185.1 L16.6 185.0 L16.5 185.7 L16.9 185.7 L17.2 185.8 L17.6 185.8 L17.9 185.8 L18.3 185.9 L18.7 185.9 L19.0 185.9 L19.4 185.9Z"/><path d="M16.6 185.0 L16.3 184.9 L16.0 184.9 L15.7 184.8 L15.4 184.8 L15.1 184.7 L14.9 185.3 L15.2 185.4 L15.5 185.5 L15.9 185.5 L16.2 185.6 L16.5 185.7Z"/><path d="M55.4 127.7 L56.0 127.5 L56.6 127.4 L57.1 127.2 L57.7 127.0 L58.3 126.9 L58.8 126.7 L59.4 126.6 L59.9 126.4 L58.5 123.2 L58.0 123.6 L57.5 123.9 L57.0 124.3 L56.5 124.7 L56.0 125.1 L55.5 125.5 L55.1 125.9 L54.6 126.3Z"/><path d="M59.9 126.4 L60.5 126.3 L61.0 126.1 L61.5 126.0 L62.0 125.8 L62.5 125.6 L63.0 125.4 L63.5 125.2 L64.0 124.9 L62.7 121.4 L62.2 121.5 L61.6 121.7 L61.1 121.9 L60.5 122.1 L60.0 122.3 L59.5 122.6 L59.0 122.9 L58.5 123.2Z"/><path d="M64.0 124.9 L64.5 124.8 L65.0 124.7 L65.5 124.6 L65.9 124.4 L66.4 124.2 L66.9 124.1 L67.4 123.9 L67.8 123.8 L66.9 120.1 L66.4 120.2 L65.9 120.3 L65.3 120.5 L64.8 120.6 L64.3 120.7 L63.7 120.9 L63.2 121.1 L62.7 121.4Z"/><path d="M67.8 123.8 L68.3 123.6 L68.8 123.5 L69.2 123.4 L69.7 123.3 L70.1 123.1 L70.6 123.0 L71.0 122.9 L71.5 122.8 L71.1 119.7 L70.6 119.7 L70.1 119.7 L69.6 119.8 L69.0 119.8 L68.5 119.9 L68.0 120.0 L67.5 120.0 L66.9 120.1Z"/><path d="M71.5 122.8 L71.9 122.7 L72.4 122.7 L72.8 122.6 L73.3 122.5 L73.7 122.4 L74.1 122.4 L74.6 122.3 L75.0 122.2 L75.0 119.8 L74.5 119.7 L74.0 119.7 L73.6 119.6 L73.1 119.6 L72.6 119.6 L72.1 119.6 L71.6 119.6 L71.1 119.7Z"/><path d="M75.0 122.2 L75.3 122.4 L75.6 122.5 L75.9 122.6 L76.2 122.7 L76.4 122.9 L76.7 123.0 L76.9 123.2 L77.0 123.3 L78.2 119.4 L77.8 119.4 L77.4 119.4 L77.0 119.4 L76.6 119.4 L76.2 119.5 L75.8 119.6 L75.4 119.6 L75.0 119.8Z"/><path d="M77.0 123.3 L77.2 123.5 L77.3 123.7 L77.4 123.8 L77.5 124.0 L77.6 124.2 L77.6 124.3 L77.6 124.5 L77.6 124.6 L81.5 120.1 L81.1 120.0 L80.7 119.8 L80.3 119.7 L79.9 119.6 L79.5 119.5 L79.1 119.4 L78.7 119.4 L78.2 119.4Z"/><path d="M77.6 124.6 L77.6 124.7 L77.6 124.9 L77.6 125.0 L77.6 125.1 L77.5 125.2 L77.5 125.3 L77.4 125.4 L77.4 125.5 L84.1 122.6 L83.8 122.2 L83.6 121.8 L83.3 121.5 L82.9 121.2 L82.6 120.9 L82.2 120.6 L81.9 120.4 L81.5 120.1Z"/><path d="M77.4 125.5 L77.4 125.6 L77.4 125.7 L77.3 125.8 L77.3 125.9 L77.3 126.0 L77.3 126.1 L77.2 126.3 L77.2 126.4 L85.3 126.1 L85.2 125.6 L85.1 125.1 L85.0 124.7 L84.9 124.3 L84.7 123.8 L84.5 123.4 L84.3 123.0 L84.1 122.6Z"/><path d="M77.2 126.4 L77.2 126.6 L77.3 126.8 L77.6 127.0 L77.8 127.3 L78.0 127.5 L78.2 127.8 L78.4 128.2 L78.5 128.5 L83.5 129.5 L83.8 129.1 L84.0 128.7 L84.3 128.3 L84.6 127.9 L84.9 127.4 L85.2 127.0 L85.3 126.5 L85.3 126.1Z"/><path d="M78.5 128.5 L78.5 128.9 L78.4 129.2 L78.3 129.6 L78.3 130.0 L78.2 130.3 L78.1 130.7 L78.1 131.0 L78.0 131.4 L82.7 132.4 L82.8 132.1 L82.9 131.7 L83.0 131.3 L83.1 131.0 L83.2 130.6 L83.3 130.2 L83.4 129.9 L83.5 129.5Z"/><path d="M78.0 131.4 L78.0 131.7 L78.0 132.0 L77.9 132.4 L77.9 132.7 L77.9 133.1 L77.8 133.4 L77.8 133.7 L77.8 134.1 L81.7 135.1 L81.8 134.8 L82.0 134.5 L82.1 134.1 L82.3 133.8 L82.4 133.4 L82.5 133.1 L82.6 132.8 L82.7 132.4Z"/><path d="M77.8 134.1 L77.7 134.4 L77.7 134.7 L77.7 135.0 L77.7 135.4 L77.6 135.7 L77.6 136.0 L77.6 136.3 L77.6 136.7 L80.4 137.6 L80.6 137.3 L80.7 137.0 L80.9 136.7 L81.1 136.4 L81.2 136.1 L81.4 135.7 L81.6 135.4 L81.7 135.1Z"/><path d="M77.6 136.7 L77.5 137.0 L77.5 137.3 L77.5 137.6 L77.5 138.0 L77.4 138.3 L77.4 138.6 L77.3 138.9 L77.3 139.3 L78.9 139.9 L79.1 139.6 L79.3 139.3 L79.5 139.1 L79.7 138.8 L79.8 138.5 L80.0 138.2 L80.2 137.9 L80.4 137.6Z"/><path d="M77.3 139.3 L77.2 139.6 L77.1 139.9 L77.0 140.2 L76.9 140.5 L76.8 140.8 L76.6 141.1 L76.5 141.4 L76.9 141.5 L77.1 142.5 L77.8 142.0 L78.0 141.7 L78.1 141.4 L78.3 141.1 L78.4 140.8 L78.5 140.5 L78.7 140.2 L78.9 139.9Z"/><path d="M76.9 141.5 L76.7 141.4 L76.2 141.2 L75.7 141.1 L75.2 141.0 L74.8 140.9 L74.3 140.8 L73.8 140.8 L73.2 140.7 L73.1 141.6 L73.6 141.7 L74.1 141.8 L74.6 141.9 L75.0 142.0 L75.5 142.1 L76.0 142.2 L76.4 142.4 L77.1 142.5Z"/><path d="M73.2 140.7 L72.7 140.7 L72.2 140.6 L71.7 140.6 L71.2 140.6 L70.7 140.6 L70.1 140.6 L69.6 140.6 L69.1 140.6 L69.1 141.5 L69.6 141.4 L70.1 141.4 L70.7 141.4 L71.2 141.4 L71.7 141.4 L72.2 141.5 L72.7 141.5 L73.1 141.6Z"/><path d="M69.1 140.6 L68.5 140.7 L68.0 140.7 L67.5 140.7 L66.9 140.8 L66.4 140.9 L65.9 140.9 L65.3 141.0 L64.8 141.1 L65.0 142.1 L65.5 142.0 L66.0 141.9 L66.6 141.8 L67.1 141.7 L67.6 141.6 L68.1 141.6 L68.6 141.5 L69.1 141.5Z"/><path d="M64.8 141.1 L64.3 141.3 L63.7 141.4 L63.2 141.5 L62.7 141.7 L62.1 141.8 L61.6 142.0 L61.1 142.2 L60.6 142.4 L61.0 143.5 L61.5 143.3 L62.0 143.1 L62.5 142.9 L63.0 142.7 L63.5 142.6 L64.0 142.4 L64.5 142.3 L65.0 142.1Z"/><path d="M60.6 142.4 L60.1 142.6 L59.5 142.8 L59.0 143.1 L58.5 143.3 L58.1 143.6 L57.6 143.8 L57.1 144.1 L52.6 145.9 L61.4 144.1 L57.8 145.3 L58.3 145.0 L58.7 144.7 L59.2 144.5 L59.6 144.2 L60.1 144.0 L60.6 143.7 L61.0 143.5Z"/><path d="M52.6 145.9 L57.3 147.1 L57.8 147.1 L58.4 147.2 L58.9 147.1 L59.5 147.1 L60.0 147.1 L60.6 147.1 L61.1 147.0 L61.3 143.7 L60.8 143.6 L60.3 143.5 L59.8 143.4 L59.3 143.3 L58.8 143.2 L58.3 143.1 L57.8 143.0 L61.4 144.1Z"/><path d="M61.1 147.0 L61.7 147.0 L62.2 146.9 L62.8 146.9 L63.3 146.8 L63.8 146.8 L64.4 146.9 L64.9 146.9 L65.5 146.8 L65.3 143.9 L64.8 143.9 L64.3 143.9 L63.8 144.0 L63.3 144.0 L62.8 144.0 L62.3 143.9 L61.8 143.8 L61.3 143.7Z"/><path d="M65.5 146.8 L66.0 146.8 L66.5 146.8 L67.1 146.8 L67.6 146.7 L68.1 146.7 L68.7 146.6 L69.2 146.6 L69.7 146.5 L69.5 143.6 L68.9 143.6 L68.4 143.7 L67.9 143.7 L67.4 143.8 L66.9 143.8 L66.4 143.8 L65.9 143.9 L65.3 143.9Z"/><path d="M69.7 146.5 L70.3 146.5 L70.8 146.4 L71.3 146.4 L71.9 146.3 L72.4 146.3 L72.9 146.2 L73.5 146.2 L74.0 146.1 L73.6 143.1 L73.1 143.1 L72.6 143.2 L72.0 143.3 L71.5 143.4 L71.0 143.4 L70.5 143.5 L70.0 143.5 L69.5 143.6Z"/><path d="M74.0 146.1 L74.5 146.0 L75.1 146.0 L75.6 145.9 L76.1 145.9 L76.7 145.8 L77.2 145.8 L77.7 145.7 L74.2 143.9 L81.8 144.1 L77.2 142.4 L76.7 142.5 L76.2 142.6 L75.7 142.7 L75.2 142.8 L74.6 142.9 L74.1 143.0 L73.6 143.1Z"/><path d="M74.2 143.9 L77.2 143.8 L76.6 144.1 L76.1 144.4 L75.5 144.6 L75.0 144.9 L74.4 145.2 L73.9 145.5 L73.3 145.8 L73.9 147.0 L74.5 146.7 L75.0 146.4 L75.6 146.1 L76.1 145.8 L76.7 145.4 L77.2 145.1 L77.8 144.8 L81.8 144.1Z"/><path d="M73.3 145.8 L72.7 146.1 L72.1 146.4 L71.6 146.7 L71.0 147.0 L70.4 147.3 L69.8 147.7 L69.2 148.0 L68.6 148.3 L69.3 149.4 L69.9 149.1 L70.4 148.8 L71.0 148.5 L71.6 148.2 L72.2 147.9 L72.8 147.6 L73.3 147.3 L73.9 147.0Z"/><path d="M68.6 148.3 L68.1 148.6 L67.5 148.9 L66.9 149.2 L66.3 149.6 L65.7 149.9 L65.2 150.2 L64.6 150.5 L64.0 150.9 L64.6 152.0 L65.2 151.6 L65.8 151.3 L66.4 151.0 L66.9 150.7 L67.5 150.4 L68.1 150.1 L68.7 149.8 L69.3 149.4Z"/><path d="M64.0 150.9 L63.4 151.2 L62.9 151.5 L62.3 151.9 L61.8 152.2 L61.2 152.6 L60.7 152.9 L60.1 153.3 L59.6 153.6 L60.2 154.6 L60.8 154.3 L61.3 153.9 L61.8 153.6 L62.4 153.3 L62.9 152.9 L63.5 152.6 L64.1 152.3 L64.6 152.0Z"/><path d="M59.6 153.6 L59.1 154.0 L58.5 154.3 L58.0 154.7 L57.5 155.0 L57.0 155.4 L56.5 155.8 L56.1 156.1 L55.3 156.7 L56.7 157.3 L56.8 157.1 L57.3 156.7 L57.8 156.4 L58.2 156.0 L58.7 155.7 L59.2 155.3 L59.7 155.0 L60.2 154.6Z"/><path d="M55.3 156.7 L53.2 157.8 L53.0 158.9 L52.7 160.0 L52.4 161.1 L52.2 162.3 L51.9 163.4 L51.7 164.5 L51.5 165.6 L58.6 166.1 L58.6 165.1 L58.5 164.0 L58.5 162.9 L58.5 161.8 L58.5 160.7 L58.5 159.6 L58.5 158.5 L56.7 157.3Z"/><path d="M51.5 165.6 L51.2 166.7 L51.0 167.8 L50.9 168.9 L50.7 169.9 L50.6 171.0 L50.6 172.1 L50.5 173.2 L50.5 174.3 L58.8 174.4 L58.8 173.4 L58.8 172.4 L58.8 171.4 L58.8 170.4 L58.8 169.3 L58.7 168.3 L58.7 167.2 L58.6 166.1Z"/><path d="M50.5 174.3 L50.5 175.3 L50.5 176.4 L50.6 177.4 L50.7 178.4 L50.9 179.5 L51.0 180.5 L51.1 181.5 L51.2 182.5 L58.3 182.1 L58.4 181.1 L58.4 180.2 L58.4 179.3 L58.5 178.3 L58.6 177.3 L58.7 176.4 L58.7 175.4 L58.8 174.4Z"/><path d="M51.2 182.5 L51.3 183.5 L51.4 184.4 L51.5 185.4 L51.6 186.4 L51.7 187.3 L51.7 188.3 L51.8 189.2 L51.9 190.1 L59.2 189.0 L59.0 188.1 L58.9 187.3 L58.7 186.5 L58.6 185.6 L58.5 184.8 L58.4 183.9 L58.4 183.0 L58.3 182.1Z"/><path d="M51.9 190.1 L52.0 191.1 L52.1 192.0 L52.1 192.9 L52.3 193.8 L52.4 194.6 L52.5 195.5 L52.7 196.4 L54.0 198.4 L60.0 193.6 L60.8 194.1 L60.6 193.4 L60.4 192.7 L60.1 192.0 L59.9 191.3 L59.6 190.5 L59.4 189.7 L59.2 189.0Z"/><path d="M54.0 198.4 L56.2 199.2 L57.1 199.6 L58.0 200.0 L59.0 200.3 L59.9 200.6 L60.8 200.8 L61.8 201.0 L62.7 201.2 L64.2 196.4 L63.4 196.0 L62.7 195.7 L62.0 195.3 L61.3 194.9 L60.6 194.5 L59.9 194.1 L59.3 193.7 L60.0 193.6Z"/><path d="M62.7 201.2 L63.7 201.4 L64.7 201.5 L65.6 201.6 L66.6 201.7 L67.6 201.7 L68.5 201.8 L69.5 201.8 L70.5 201.8 L70.8 198.5 L69.9 198.3 L69.1 198.1 L68.2 197.9 L67.3 197.6 L66.5 197.3 L65.7 197.0 L64.9 196.7 L64.2 196.4Z"/><path d="M70.5 201.8 L71.5 201.8 L72.5 201.8 L73.5 201.7 L74.5 201.7 L75.5 201.6 L76.5 201.7 L77.5 201.7 L78.5 201.7 L78.4 198.9 L77.4 199.0 L76.4 199.1 L75.5 199.2 L74.5 199.1 L73.6 199.0 L72.6 198.8 L71.7 198.7 L70.8 198.5Z"/><path d="M78.5 201.7 L79.5 201.7 L80.6 201.7 L81.6 201.7 L82.7 201.7 L83.7 201.6 L84.8 201.6 L85.8 201.5 L86.9 201.4 L86.4 197.7 L85.4 197.8 L84.3 198.0 L83.3 198.2 L82.3 198.4 L81.4 198.5 L80.4 198.7 L79.4 198.8 L78.4 198.9Z"/><path d="M86.9 201.4 L88.0 201.3 L89.0 201.1 L90.1 201.0 L91.2 200.8 L92.2 200.6 L93.3 200.3 L94.3 200.1 L95.9 199.7 L94.1 196.3 L93.6 196.3 L92.5 196.5 L91.5 196.7 L90.5 196.9 L89.4 197.1 L88.4 197.3 L87.4 197.5 L86.4 197.7Z"/><path d="M95.9 199.7 L95.6 197.4 L95.5 197.2 L95.3 197.0 L95.2 196.7 L95.0 196.4 L94.8 196.0 L94.6 195.6 L94.4 195.2 L93.1 195.8 L93.3 196.3 L93.5 196.7 L93.7 197.0 L93.8 197.4 L94.0 197.7 L94.1 197.9 L94.2 198.1 L94.1 196.3Z"/><path d="M94.4 195.2 L96.8 193.4 L96.5 192.9 L96.2 192.4 L95.9 191.9 L95.6 191.4 L95.2 190.8 L94.9 190.3 L94.6 189.7 L88.6 192.7 L88.9 193.3 L89.1 193.9 L89.4 194.5 L89.6 195.1 L89.8 195.6 L90.1 196.2 L90.3 196.7 L93.1 195.8Z"/><path d="M94.6 189.7 L94.3 189.1 L94.0 188.5 L93.7 187.9 L93.4 187.3 L92.9 186.8 L92.4 186.3 L91.9 185.9 L91.4 185.4 L87.1 187.6 L87.1 188.3 L87.2 188.9 L87.3 189.6 L87.4 190.3 L87.7 190.9 L88.0 191.5 L88.3 192.1 L88.6 192.7Z"/><path d="M91.4 185.4 L91.0 185.0 L90.5 184.6 L90.1 184.2 L89.7 183.8 L89.3 183.5 L88.9 183.1 L88.5 182.9 L88.2 182.6 L86.8 183.3 L86.8 183.7 L86.8 184.2 L86.8 184.7 L86.8 185.2 L86.9 185.8 L86.9 186.4 L87.0 187.0 L87.1 187.6Z"/><path d="M88.2 182.6 L87.9 182.4 L87.6 182.2 L87.4 182.1 L87.3 182.0 L86.9 182.2 L86.8 182.4 L86.8 182.7 L86.8 183.0 L86.8 183.3Z"/></g></svg></div>
+    <div class="spine"></div>
+    <div class="stitch" style="top:12%"></div>
+    <div class="stitch" style="top:37%"></div>
+    <div class="stitch" style="top:63%"></div>
+    <div class="stitch" style="top:88%"></div>
+    <div class="ribbon"></div>
+  </div>
+</div>
+
+<section class="view show" id="listView">
+  <div class="shelf">
+    <div class="head">
+      <h1 id="mainTitle" aria-label="日記">日記</h1>
+      <button class="tab" id="traceBtn" aria-expanded="false" onclick="toggleTrace()">頁を辿る</button>
+      <button class="tab" id="tocBtn" aria-pressed="false" onclick="toggleToc()">目次</button>
+    </div>
+    <div class="trace-panel" id="trace" hidden>
+      <select id="fy" onchange="onTrace('y')" aria-label="年"></select><span>年</span>
+      <select id="fm" onchange="onTrace('m')" aria-label="月"></select><span>月</span>
+      <select id="fd" onchange="onTrace('d')" aria-label="日"></select><span>日</span>
+      <input class="search" id="q" placeholder="ことばで" oninput="renderList()">
+      <button onclick="clearTrace()">解除</button>
+    </div>
+    <div id="list"></div>
+    <div class="foot">
+      <button class="bind" id="bindBtn" onclick="bindClick()">このファイルに綴じる</button>
+      <button onclick="startSelect()">Wordに書き出す</button>
+      <button onclick="makeBlankBook()">新しい日記帳を作る</button>
+      <button onclick="exportData()">控えを書き出す</button>
+      <button onclick="document.getElementById('file').click()">控えを読み込む</button>
+      <input type="file" id="file" accept=".json" hidden onchange="importData(this)">
+      <button class="bind" id="updBtn" onclick="checkUpdate(true)">更新を確かめる</button>
+      <button onclick="$('upIn').click()">古い日記帳を新しい版にする</button>
+      <input type="file" id="upIn" accept=".html,.htm,.txt,text/html,text/plain" hidden onchange="upgradeBook(this)">
+      <div class="bind-status" id="bindStatus"></div>
+      <div class="colophon" id="verLine"></div>
+    </div>
+  </div>
+  <div class="selbar" id="selbar" hidden>
+    <span id="selCount">0頁</span>
+    <button onclick="selectAll()">すべて</button>
+    <button class="go" onclick="exportSelected()">Wordで保存</button>
+    <button onclick="endSelect()">やめる</button>
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox" hidden onclick="if(event.target===this)closePhoto()">
+  <img id="lbImg" alt="">
+  <div class="row2">
+    <button onclick="closePhoto()">閉じる</button>
+    <button class="del" onclick="removePhoto()">外す</button>
+  </div>
+</div>
+
+<section class="view" id="editView">
+  <div class="desk">
+    <div class="bar">
+      <button onclick="backToList()">← 閉じる</button>
+      <input type="date" id="date" onchange="onDateChange()">
+      <span class="spacer"></span>
+      <span class="status" id="status"></span>
+      <button class="tool ink-only" id="tPen" aria-pressed="true" onclick="setTool('pen')">ペン</button>
+      <button class="tool ink-only" id="tBold" aria-pressed="false" onclick="toggleBold()">太く</button>
+      <button class="tool ink-only" id="tErase" aria-pressed="false" onclick="setTool('erase')">消しゴム</button>
+      <button class="ink-only" onclick="undoInk()">戻す</button>
+      <button onclick="$('photoIn').click()">写真</button>
+      <input type="file" id="photoIn" accept="image/*" multiple hidden onchange="addPhotos(this)">
+      <button onclick="exportCurrent()">Word</button>
+      <button class="del" onclick="deleteEntry()">破く</button>
+    </div>
+    <div class="sheet" id="sheet">
+      <div class="when" id="when"></div>
+      <input class="title" id="title" oninput="onEdit()">
+      <textarea class="body text-only" id="body" oninput="onEdit()"></textarea>
+      <canvas id="ink" class="ink-only"></canvas>
+      <div class="photos" id="photos"></div>
+      <div class="meta" id="meta"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 日記の中身。このファイルに綴じると、ここが書き換わる -->
+<script type="application/json" id="diary-data">{"book": "", "savedAt": 0, "entries": [], "deleted": [], "photos": {}}</script>
+
+<script>
+/* 何も描画する前のページ全体を控えておく（ファイルに綴じるときの元） */
+const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
+/* 版。直すたびに番号を一つ上げる。古い日記帳はこの番号で見分ける */
+const DIARY_VERSION = 14;
+const DIARY_VERSION_DATE = '2026-10-15';
+/* 表紙はファイルの見た目用。ブラウザで開いたら外す */
+/* 表紙の題字を一覧の見出しにも使う */
+{
+  const svg = document.querySelector('#cover .label svg').cloneNode(true);
+  const h = document.getElementById('mainTitle');
+  h.textContent = ''; h.appendChild(svg);
+}
+document.getElementById('cover').remove();
+
+/* この日記帳だけの保存場所。ファイルごとに別の番号を持ち、他の日記帳の中身は読まない */
+const FILEDATA = (() => {
+  try { return JSON.parse(document.getElementById('diary-data').textContent) || {}; } catch(e){ return {}; }
+})();
+const BOOK = /^[a-z0-9]{8,40}$/.test(FILEDATA.book || '') ? FILEDATA.book : 'nobook';
+const KEY = 'diary-book-' + BOOK;
+const LEGACY_KEY = 'diary-entries-v1';   // 以前の版の保存場所（持ち主の日記帳だけが一度だけ引き継ぐ）
+const VIEWKEY = 'diary-view';
+let entries = [];
+let currentId = null;
+let saveTimer = null;
+let view = 'pages';
+let selecting = false;
+const selected = new Set();
+let shown = [];
+
+const $ = id => document.getElementById(id);
+
+/* ---------- 読み込み・保存 ---------- */
+/* 破いた頁の番号。ファイルにもブラウザにも残し、どちらかに古い写しがあっても復活させない */
+let torn = new Set();
+/* 写真は {id: {src, w, h}} でまとめて持ち、頁には番号だけ書く */
+let photos = {};
+function readState(raw){
+  if(!raw) return null;
+  if(Array.isArray(raw)) return {savedAt:0, entries:raw, deleted:[]};
+  if(Array.isArray(raw.entries)) return {savedAt:raw.savedAt||0, entries:raw.entries,
+    deleted: Array.isArray(raw.deleted) ? raw.deleted : []};
+  return null;
+}
+function load(){
+  let fromFile = null, fromLocal = null;
+  let fromLegacy = null;
+  fromFile = readState(FILEDATA);
+  try { fromLocal = readState(JSON.parse(localStorage.getItem(KEY))); } catch(e){}
+  if(FILEDATA.legacy){
+    try { fromLegacy = readState(JSON.parse(localStorage.getItem(LEGACY_KEY))); } catch(e){}
+  }
+  // ファイルとブラウザの両方の頁を合わせる。同じ頁なら新しく書き直した方
+  const byId = new Map();
+  for(const st of [fromFile, fromLocal, fromLegacy]){
+    if(!st) continue;
+    for(const e of st.entries){
+      if(!e || !e.id) continue;
+      const old = byId.get(e.id);
+      if(!old || (e.updated||0) >= (old.updated||0)) byId.set(e.id, e);
+    }
+  }
+  for(const st of [fromFile, fromLocal, fromLegacy]) if(st) st.deleted.forEach(id => torn.add(id));
+  if(FILEDATA.photos && typeof FILEDATA.photos === 'object') Object.assign(photos, FILEDATA.photos);
+  entries = [...byId.values()].filter(e => !torn.has(e.id));
+  // 何も書かれていない頁は捨てる
+  entries = entries.filter(e => e && e.id && hasContent(e));
+  try { view = localStorage.getItem(VIEWKEY) === 'toc' ? 'toc' : 'pages'; } catch(e){}
+  // 引き継いだら、古い共通の保存場所は消す（他のファイルから見えないように）
+  if(fromLegacy){
+    try {
+      localStorage.setItem(KEY, JSON.stringify({book:BOOK, savedAt:Date.now(), entries, deleted:[...torn]}));
+      localStorage.removeItem(LEGACY_KEY);
+    } catch(e){}
+  }
+}
+function persist(){
+  const state = {book:BOOK, savedAt:Date.now(), entries, deleted:[...torn]};
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    setStatus('保存済み');
+  } catch(e){
+    setStatus('ブラウザに保存できない');
+  }
+  savePhotos();
+  writeFile(state);
+}
+function setStatus(s){ $('status').textContent = s; }
+function hasContent(e){
+  return (e.title||'').trim() || (e.body||'').trim() || (e.strokes && e.strokes.length)
+    || (e.photos && e.photos.length);
+}
+/* 使われている写真だけ */
+function usedPhotos(list = entries){
+  const out = {};
+  for(const e of list) for(const id of (e.photos||[])) if(photos[id]) out[id] = photos[id];
+  return out;
+}
+/* 写真はブラウザの大きい保存場所（IndexedDB）へ。localStorage には入りきらない */
+let photoSaveTimer = null;
+function savePhotos(){
+  clearTimeout(photoSaveTimer);
+  photoSaveTimer = setTimeout(() => { idbSet('photos-' + BOOK, usedPhotos()).catch(()=>{}); }, 300);
+}
+async function loadPhotos(){
+  try {
+    const p = await idbGet('photos-' + BOOK);
+    if(p && typeof p === 'object'){
+      let added = false;
+      for(const k in p) if(!photos[k]){ photos[k] = p[k]; added = true; }
+      if(added){ renderList(); if(currentId) renderPhotos(); }
+    }
+  } catch(e){}
+}
+
+/* ---------- このHTMLファイルへの上書き ---------- */
+const canBind = 'showSaveFilePicker' in window;
+let fileHandle = null;
+let granted = false;
+let writeChain = Promise.resolve();
+
+function serialize(state, book = BOOK){
+  const json = JSON.stringify({book, savedAt:state.savedAt, entries:state.entries,
+    deleted: state.deleted || [], photos: state.photos || usedPhotos(state.entries)}).replace(/</g, '\\u003c');
+  return PRISTINE.replace(
+    /(<script type="application\/json" id="diary-data">)[\s\S]*?(<\/script>)/,
+    (_, a, b) => a + json + b);
+}
+function idb(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('diary-file', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(k){
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const q = db.transaction('kv').objectStore('kv').get(k);
+    q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+  });
+}
+async function idbSet(k, v){
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const t = db.transaction('kv', 'readwrite');
+    t.objectStore('kv').put(v, k);
+    t.oncomplete = res; t.onerror = () => rej(t.error);
+  });
+}
+function bindUI(msg){
+  const btn = $('bindBtn');
+  if(!canBind){
+    btn.textContent = '綴じて保存';
+    $('bindStatus').textContent = msg || 'このブラウザは開いているファイルへの上書きに対応していない。「綴じて保存」で中身入りの diary.html を保存し直して。';
+    return;
+  }
+  if(fileHandle && granted){
+    btn.textContent = '綴じ済み';
+    $('bindStatus').textContent = msg || `書くたびに ${fileHandle.name} へ上書き保存中`;
+  } else if(fileHandle){
+    btn.textContent = '綴じ直す';
+    $('bindStatus').textContent = msg || `開き直したので上書きの許可が要る（${fileHandle.name}）`;
+  } else {
+    btn.textContent = 'このファイルに綴じる';
+    $('bindStatus').textContent = msg || 'まだ綴じていない。押して、今開いているこの diary.html を選ぶ';
+  }
+}
+async function initBind(){
+  if(canBind){
+    try {
+      fileHandle = await idbGet('handle-' + BOOK) || null;
+      if(fileHandle) granted = (await fileHandle.queryPermission({mode:'readwrite'})) === 'granted';
+    } catch(e){ fileHandle = null; }
+    if(fileHandle && granted) writeFile({savedAt:Date.now(), entries, deleted:[...torn]});
+  }
+  bindUI();
+}
+async function bindClick(){
+  if(!canBind){ downloadSelf(); return; }
+  try {
+    if(fileHandle && !granted){
+      granted = (await fileHandle.requestPermission({mode:'readwrite'})) === 'granted';
+    } else if(!fileHandle){
+      fileHandle = await window.showSaveFilePicker({
+        suggestedName:'diary.html',
+        types:[{description:'HTML', accept:{'text/html':['.html']}}]
+      });
+      granted = true;
+      try { await idbSet('handle-' + BOOK, fileHandle); } catch(e){}
+    }
+    if(granted) writeFile({savedAt:Date.now(), entries, deleted:[...torn]});
+    bindUI();
+  } catch(e){
+    if(e.name !== 'AbortError') bindUI('綴じられなかった：' + e.message);
+  }
+}
+function writeFile(state){
+  if(!fileHandle || !granted) return;
+  writeChain = writeChain.then(async () => {
+    try {
+      const w = await fileHandle.createWritable();
+      await w.write(serialize(state));
+      await w.close();
+    } catch(e){
+      granted = false;
+      bindUI('上書きできなかった。押して綴じ直して');
+    }
+  });
+}
+/* まっさらな日記帳を作る。押すたびに新しい番号がつくので、他の日記帳と保存場所が混ざらない */
+function newBookId(){
+  const a = new Uint8Array(10);
+  crypto.getRandomValues(a);
+  return [...a].map(n => n.toString(16).padStart(2,'0')).join('');
+}
+function makeBlankBook(){
+  const html = serialize({savedAt:0, entries:[]}, newBookId());
+  download(new Blob([html], {type:'text/html'}), '日記帳.html');
+}
+/* 古い日記帳ファイルを読み、中身（番号・頁・破いた印・写真）をそのままこの版に移して保存し直す */
+function upgradeBook(input){
+  const f = input.files[0]; input.value = ''; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const text = String(r.result);
+    const m = text.match(/<script type="application\/json" id="diary-data">([\s\S]*?)<\/script>/);
+    if(!m){ alert('日記帳のファイルではないみたい'); return; }
+    let d;
+    try { d = JSON.parse(m[1]); } catch(e){ alert('日記帳の中身を読めなかった'); return; }
+    const vm = text.match(/const DIARY_VERSION = (\d+)/);
+    const oldVer = vm ? +vm[1] : 0;
+    if(oldVer > DIARY_VERSION){
+      alert(`選んだ日記帳（第${kan(oldVer)}版）の方が、今開いているもの（第${kan(DIARY_VERSION)}版）より新しい。そっちを使って`);
+      return;
+    }
+    const st = readState(d) || {entries:[], deleted:[], savedAt:0};
+    const book = /^[a-z0-9]{8,40}$/.test(d.book || '') ? d.book : newBookId();
+    const html = serialize({savedAt: st.savedAt || 0, entries: st.entries, deleted: st.deleted,
+      photos: (d.photos && typeof d.photos === 'object') ? d.photos : {}}, book);
+    const ext = /\.txt$/i.test(f.name) ? 'txt' : 'html';
+    const name = f.name.replace(/\.(html?|txt)$/i, '') + '.' + ext;
+    download(new Blob([html], {type: ext === 'txt' ? 'text/plain' : 'text/html'}), name);
+    const was = oldVer ? `第${kan(oldVer)}版` : '番号のない古い版';
+    setTimeout(() => alert(`${was} → 第${kan(DIARY_VERSION)}版にした（頁${st.entries.length}枚、番号はそのまま）`), 300);
+  };
+  r.readAsText(f);
+}
+/* ---------- 更新 ---------- */
+const UPDATE_PAGE = 'https://h2yhtzkk8y-hash.github.io/diary/';
+const UPDATE_URL = UPDATE_PAGE + 'latest.html';
+const HOSTED = location.hostname === 'h2yhtzkk8y-hash.github.io';
+const DATA_TAG = '<script type="application/json" id="diary-data">';
+async function fetchLatest(){
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const r = await fetch(UPDATE_URL + '?t=' + Date.now(), {cache:'no-store', signal:ctl.signal});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const text = await r.text();
+    const m = text.match(/const DIARY_VERSION = (\d+)/);
+    if(!m || text.indexOf(DATA_TAG) < 0) throw new Error('not a diary');
+    return {text, ver:+m[1]};
+  } finally { clearTimeout(tm); }
+}
+/* 取ってきた最新版に、この日記帳の中身（番号・頁・破いた印・写真）を入れる */
+function fillTemplate(text){
+  const json = JSON.stringify({book:BOOK, savedAt:Date.now(), entries, deleted:[...torn], photos:usedPhotos()})
+    .replace(/</g, '\\u003c');
+  const i = text.indexOf(DATA_TAG), j = text.indexOf('</' + 'script>', i);
+  return text.slice(0, i + DATA_TAG.length) + json + text.slice(j);
+}
+async function checkUpdate(manual){
+  if(HOSTED) return;
+  let latest;
+  try { latest = await fetchLatest(); }
+  catch(e){
+    if(manual && confirm('最新版を取りに行けなかった。配布所を開いて、自分でダウンロードする？\n（ダウンロードしたら、それを開いて「古い日記帳を新しい版にする」でこの日記帳を選ぶ）')){
+      window.open(UPDATE_PAGE, '_blank');
+    }
+    return;
+  }
+  if(latest.ver <= DIARY_VERSION){
+    if(manual) alert(`これが最新（第${kan(DIARY_VERSION)}版）`);
+    return;
+  }
+  if(!manual){ $('updBtn').textContent = `新しい版がある（第${kan(latest.ver)}版）`; return; }
+  flushSave();
+  download(new Blob([fillTemplate(latest.text)], {type:'text/html'}), 'diary.html');
+  setTimeout(() => alert(`第${kan(latest.ver)}版にした。保存したファイルを開いて、そっちを使って（番号も中身もそのまま）`), 300);
+}
+/* 配布所として開かれたときは、日記は書かせず、新しい日記帳を作る入り口だけ出す */
+function showDistribution(){
+  $('trace').hidden = true; $('traceBtn').hidden = true; $('tocBtn').hidden = true;
+  document.querySelector('.foot').hidden = true;
+  $('list').className = '';
+  $('list').innerHTML = `<div class="dist">
+    <p>ここは日記帳の配布所。<br>下を押して自分の日記帳を作り、保存したファイルを開いて使って。<br>ここで書いたものは保存されない。</p>
+    <button onclick="makeBlankBook()">新しい日記帳を作る</button>
+    <p style="margin-top:28px" id="distVer"></p>
+  </div>`;
+  $('distVer').textContent = $('verLine').textContent;
+}
+function downloadSelf(){
+  download(new Blob([serialize({savedAt:Date.now(), entries, deleted:[...torn]})], {type:'text/html'}), 'diary.html');
+}
+
+/* ---------- 日付まわり ---------- */
+function today(){
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0,10);
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function bornAt(e){ return e.created || e.updated || 0; }
+function sorted(){
+  // 日付の新しい順。同じ日の中は書き始めた順（新しく書き始めた方が先）で、直しても動かない
+  return [...entries].sort((a,b)=> b.date.localeCompare(a.date) || bornAt(b) - bornAt(a));
+}
+const KANJI = ['〇','一','二','三','四','五','六','七','八','九'];
+function kan(n){
+  if(n<10) return KANJI[n];
+  if(n<20) return '十' + (n%10 ? KANJI[n%10] : '');
+  return KANJI[Math.floor(n/10)] + '十' + (n%10 ? KANJI[n%10] : '');
+}
+function wd(s){ const [y,m,d]=s.split('-').map(Number); return '日月火水木金土'[new Date(y,m-1,d).getDay()]; }
+function fmtShort(s){ const [,m,d]=s.split('-').map(Number); return `${kan(m)}月${kan(d)}日 ${wd(s)}`; }
+function fmtYMD(s){ const [y,m,d]=s.split('-').map(Number); return `${y}年${m}月${d}日`; }
+function fmtLong(s){ const [y,m,d]=s.split('-').map(Number); return `${y}年${m}月${d}日（${wd(s)}）`; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function show(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('show', v.id===id));
+  window.scrollTo(0,0);
+}
+
+/* ---------- 頁を辿る ---------- */
+function uniq(a){ return [...new Set(a)]; }
+function fillSelect(el, values, fmt){
+  const cur = el.value;
+  el.innerHTML = '<option value="">—</option>' +
+    values.map(v=>`<option value="${v}">${fmt(v)}</option>`).join('');
+  el.value = values.includes(cur) ? cur : '';
+}
+function populateTrace(){
+  const dates = entries.map(e=>e.date);
+  fillSelect($('fy'), uniq(dates.map(d=>d.slice(0,4))).sort().reverse(), v=>v);
+  const y = $('fy').value;
+  fillSelect($('fm'), y ? uniq(dates.filter(d=>d.startsWith(y)).map(d=>d.slice(5,7))).sort() : [], v=>+v);
+  const m = $('fm').value;
+  fillSelect($('fd'), m ? uniq(dates.filter(d=>d.startsWith(`${y}-${m}`)).map(d=>d.slice(8,10))).sort() : [], v=>+v);
+  $('fm').disabled = !y;
+  $('fd').disabled = !m;
+}
+function onTrace(level){
+  if(level==='y'){ $('fm').value=''; $('fd').value=''; }
+  if(level==='m'){ $('fd').value=''; }
+  renderList();
+}
+function clearTrace(){
+  $('fy').value=''; $('fm').value=''; $('fd').value=''; $('q').value='';
+  renderList();
+}
+function toggleTrace(){
+  const p = $('trace'), open = p.hidden;
+  p.hidden = !open;
+  $('traceBtn').setAttribute('aria-expanded', open);
+  if(!open) clearTrace();
+}
+function toggleToc(){
+  view = view === 'toc' ? 'pages' : 'toc';
+  try { localStorage.setItem(VIEWKEY, view); } catch(e){}
+  renderList();
+}
+
+/* ---------- 一覧の描画 ---------- */
+function renderList(){
+  populateTrace();
+  $('tocBtn').setAttribute('aria-pressed', view === 'toc');
+  const q = $('q').value.trim().toLowerCase();
+  const prefix = [$('fy').value, $('fm').value, $('fd').value].filter(Boolean).join('-');
+  const filtering = q || prefix;
+  const list = $('list');
+  shown = sorted().filter(e =>
+    (!prefix || e.date.startsWith(prefix)) &&
+    (!q || ((e.title||'') + (e.body||'')).toLowerCase().includes(q)));
+
+  if(view === 'toc'){
+    list.className = 'toc';
+    const rows = shown.map(e => `
+      <div class="row ${selected.has(e.id)?'sel':''}" tabindex="0" role="button"
+        onclick="pageClick('${e.id}')" onkeydown="if(event.key==='Enter')pageClick('${e.id}')">
+        <span class="rt">${esc(e.title || '無題')}</span><span class="lead"></span>
+        <span class="rd">${fmtYMD(e.date)}</span>
+      </div>`).join('');
+    list.innerHTML = '<h2>目次</h2>' +
+      (rows || `<div class="none">${filtering ? '該当する頁がない' : 'まだ何も書いていない'}</div>`);
+  } else {
+    list.className = '';
+    const blank = `<div class="spread">
+      <div class="page blank" tabindex="0" role="button" aria-label="手で書く白紙"
+        onclick="newEntry('ink')" onkeydown="if(event.key==='Enter')newEntry('ink')"></div>
+      <div class="page blank lined" tabindex="0" role="button" aria-label="文字で書く白紙"
+        onclick="newEntry('text')" onkeydown="if(event.key==='Enter')newEntry('text')"></div>
+    </div>`;
+    const pages = shown.map(e => `
+      <div class="page ${selected.has(e.id)?'sel':''}" tabindex="0" role="button"
+        onclick="pageClick('${e.id}')" onkeydown="if(event.key==='Enter')pageClick('${e.id}')">
+        ${(e.photos||[]).length && photos[e.photos[0]] ? `<img class="pthumb" alt="" src="${photos[e.photos[0]].src}">` : ''}
+        ${e.type === 'ink'
+          ? `<div class="hd">${fmtShort(e.date)}${e.title ? `<span class="t">${esc(e.title)}</span>` : ''}</div>
+             <div class="inkthumb">${inkSVG(e.strokes)}</div>`
+          : `<div class="hd">${fmtShort(e.date)}</div>
+             <div class="cols">
+               <div class="ttl">${esc(e.title || '無題')}</div>
+               <div class="ex">${esc((e.body||'').slice(0,160))}</div>
+             </div>`}
+      </div>`).join('');
+    const grid = `<div class="pages">${pages}</div>`;
+    list.innerHTML = (filtering || selecting)
+      ? (pages ? grid : '<div class="none">該当する頁がない</div>')
+      : blank + grid;
+  }
+  $('selCount').textContent = `${selected.size}頁`;
+}
+function pageClick(id){
+  if(selecting){
+    selected.has(id) ? selected.delete(id) : selected.add(id);
+    renderList();
+  } else openEntry(id);
+}
+
+/* ---------- 書く ---------- */
+function openEntry(id){
+  const e = entries.find(x=>x.id===id); if(!e) return;
+  currentId = id;
+  $('date').value = e.date;
+  $('title').value = e.title;
+  $('body').value = e.body || '';
+  const ink = e.type === 'ink';
+  $('editView').classList.toggle('is-ink', ink);
+  updateMeta(e);
+  setStatus('');
+  show('editView');
+  renderPhotos();
+  if(!ink) growBody();
+  if(ink){ undoStack = []; fitInk(); }
+}
+function renderPhotos(){
+  const e = entries.find(x=>x.id===currentId);
+  $('photos').innerHTML = (e && e.photos || []).filter(id => photos[id])
+    .map(id => `<img class="photo" alt="写真" src="${photos[id].src}" onclick="openPhoto('${id}')">`).join('');
+}
+async function shrinkPhoto(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const max = 1400;
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h); ctx.drawImage(img, 0, 0, w, h);
+    return {src: c.toDataURL('image/jpeg', 0.8), w, h};
+  } finally { URL.revokeObjectURL(url); }
+}
+async function addPhotos(input){
+  const e = entries.find(x=>x.id===currentId); if(!e) return;
+  const files = [...input.files]; input.value = '';
+  if(!files.length) return;
+  setStatus('写真を入れている…');
+  let ok = 0;
+  for(const f of files){
+    try {
+      const p = await shrinkPhoto(f);
+      const id = 'p' + uid();
+      photos[id] = p;
+      (e.photos = e.photos || []).push(id);
+      ok++;
+    } catch(err){}
+  }
+  if(!ok){ setStatus('写真を読めなかった'); return; }
+  e.updated = Date.now();
+  renderPhotos(); persist();
+}
+let viewingPhoto = null;
+function openPhoto(id){
+  viewingPhoto = id; $('lbImg').src = photos[id].src; $('lightbox').hidden = false;
+}
+function closePhoto(){ $('lightbox').hidden = true; viewingPhoto = null; }
+function removePhoto(){
+  const e = entries.find(x=>x.id===currentId);
+  if(!e || !viewingPhoto || !confirm('この写真を外す？')) return;
+  e.photos = (e.photos||[]).filter(id => id !== viewingPhoto);
+  e.updated = Date.now();
+  closePhoto(); renderPhotos(); persist();
+}
+function growBody(){
+  const t = $('body');
+  t.style.height = 'auto';
+  t.style.height = Math.max(t.scrollHeight, window.innerHeight * 0.5) + 'px';
+}
+window.addEventListener('resize', () => { if(currentId) growBody(); });
+function updateMeta(e){
+  $('when').textContent = fmtLong(e.date);
+  $('meta').textContent = e.type === 'ink' ? '' : `${(e.body||'').replace(/\s/g,'').length}字`;
+}
+function newEntry(type){
+  const e = {id:uid(), type: type === 'ink' ? 'ink' : 'text', date:today(), title:'', body:'',
+             created:Date.now(), updated:Date.now()};
+  if(e.type === 'ink') e.strokes = [];
+  entries.push(e);
+  openEntry(e.id);
+  if(e.type === 'text') $('body').focus();
+}
+/* 日付は、自分で日付欄を変えたときだけ変わる。本文を直しても書いた日のまま */
+function onDateChange(){
+  const e = entries.find(x=>x.id===currentId); if(!e) return;
+  const v = $('date').value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ $('date').value = e.date; return; }
+  if(v === e.date) return;
+  e.date = v; e.updated = Date.now();
+  updateMeta(e); setStatus('…');
+  clearTimeout(saveTimer); saveTimer = setTimeout(persist, 600);
+}
+function onEdit(){
+  const e = entries.find(x=>x.id===currentId); if(!e) return;
+  e.title = $('title').value;
+  e.body = $('body').value;
+  e.updated = Date.now();
+  if(e.type !== 'ink') growBody();
+  updateMeta(e);
+  setStatus('…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persist, 600);
+}
+function backToList(){
+  clearTimeout(saveTimer);
+  drawing = null;
+  try {
+    entries = entries.filter(e => e.id!==currentId || hasContent(e));
+    persist();
+  } catch(e){ console.error(e); }
+  currentId = null;
+  $('editView').classList.remove('is-ink');
+  try { renderList(); } catch(e){ console.error(e); }
+  show('listView');
+}
+function deleteEntry(){
+  if(!currentId || !confirm('この頁を破く？（元に戻せない）')) return;
+  torn.add(currentId);
+  entries = entries.filter(x=>x.id!==currentId);
+  currentId = null;
+  persist();
+  renderList();
+  show('listView');
+}
+
+/* ---------- 手で書く ---------- */
+const INK_W = 900, INK_H = 1200;
+let tool = 'pen', bold = false, drawing = null, penSeen = false, undoStack = [];
+let strokeAt = 0, strokeEndAt = 0;
+/* 書いている最中のタップと、ペンで書いた直後に手のひらが触れたタップだけ捨てる。
+   ボタン自体は無効にしないので、固まって押せなくなることはない */
+function swallowBarTap(ev){
+  const now = performance.now();
+  const busy = drawing && now - strokeAt < 8000;   // 8秒以上続く線は取りこぼしとみなす
+  const palm = penSeen && ev.pointerType === 'touch' && now - strokeEndAt < 350;
+  if(busy || palm){ ev.stopPropagation(); ev.preventDefault(); }
+}
+document.addEventListener('selectstart', ev => { if(drawing) ev.preventDefault(); });
+function curEntry(){ return entries.find(x=>x.id===currentId); }
+function inkWidth(base, p){ return base * (0.35 + 1.3 * p); }
+function drawStrokes(ctx, strokes, k){
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#22252a';
+  for(const s of strokes){
+    const pts = s.p;
+    if(pts.length === 1){
+      ctx.beginPath(); ctx.fillStyle = '#22252a';
+      ctx.arc(pts[0][0]*k, pts[0][1]*k, inkWidth(s.w, pts[0][2])*k/2, 0, Math.PI*2); ctx.fill();
+      continue;
+    }
+    for(let i=1;i<pts.length;i++){
+      const a = pts[i-1], b = pts[i], c = pts[i+1];
+      ctx.beginPath();
+      ctx.lineWidth = inkWidth(s.w, (a[2]+b[2])/2) * k;
+      ctx.moveTo(i===1 ? a[0]*k : (pts[i-2][0]+a[0])/2*k, i===1 ? a[1]*k : (pts[i-2][1]+a[1])/2*k);
+      ctx.quadraticCurveTo(a[0]*k, a[1]*k, (a[0]+b[0])/2*k, (a[1]+b[1])/2*k);
+      if(!c) ctx.lineTo(b[0]*k, b[1]*k);
+      ctx.stroke();
+    }
+  }
+}
+function fitInk(){
+  const c = $('ink'), r = c.getBoundingClientRect();
+  if(!r.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+  redrawInk();
+}
+function redrawInk(){
+  const c = $('ink'), ctx = c.getContext('2d'), e = curEntry();
+  ctx.clearRect(0, 0, c.width, c.height);
+  if(!e || e.type !== 'ink') return;
+  const k = c.width / INK_W;
+  drawStrokes(ctx, e.strokes, k);
+  if(drawing) drawStrokes(ctx, [drawing], k);
+}
+function inkPoint(ev, prev){
+  const r = $('ink').getBoundingClientRect();
+  const x = (ev.clientX - r.left) / r.width * INK_W, y = (ev.clientY - r.top) / r.height * INK_H;
+  let p;
+  if(ev.pointerType === 'pen' && ev.pressure > 0) p = ev.pressure;
+  else {
+    // 指やマウスは速さで太さを変える：ゆっくりは太く、速いと細く
+    const v = prev ? Math.hypot(x-prev[0], y-prev[1]) / Math.max(1, ev.timeStamp - prev[3]) : 0;
+    const target = Math.max(0.25, 0.85 - v * 0.35);
+    p = prev ? prev[2] * 0.6 + target * 0.4 : 0.55;
+  }
+  return [Math.round(x*10)/10, Math.round(y*10)/10, Math.round(p*100)/100, ev.timeStamp];
+}
+function pushUndo(){
+  const e = curEntry(); undoStack.push(JSON.stringify(e.strokes));
+  if(undoStack.length > 60) undoStack.shift();
+}
+function eraseAt(x, y){
+  const e = curEntry(), r = 22;
+  const before = e.strokes.length;
+  e.strokes = e.strokes.filter(s => !s.p.some(q => Math.hypot(q[0]-x, q[1]-y) < r + s.w));
+  if(e.strokes.length !== before) redrawInk();
+}
+function inkChanged(){
+  const e = curEntry(); e.updated = Date.now();
+  setStatus('…'); clearTimeout(saveTimer); saveTimer = setTimeout(persist, 600);
+}
+function setupInk(){
+  const c = $('ink');
+  c.addEventListener('pointerdown', ev => {
+    if(ev.pointerType === 'pen') penSeen = true;
+    if(ev.pointerType === 'touch' && penSeen) return;   // ペンを使ったら手のひらは無視
+    if(ev.button > 0) return;
+    ev.preventDefault();
+    try { c.setPointerCapture(ev.pointerId); } catch(e){}
+    strokeAt = performance.now();
+    try { window.getSelection().removeAllRanges(); } catch(e){}
+    pushUndo();
+    const pt = inkPoint(ev, null);
+    if(tool === 'erase'){ drawing = {erase:true, id:ev.pointerId}; eraseAt(pt[0], pt[1]); return; }
+    drawing = {w: bold ? 6.5 : 3.2, p:[pt], id:ev.pointerId};
+    redrawInk();
+  });
+  c.addEventListener('pointermove', ev => {
+    if(!drawing || ev.pointerId !== drawing.id) return;
+    ev.preventDefault();
+    const evs = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [ev];
+    for(const e2 of (evs.length ? evs : [ev])){
+      if(drawing.erase){ const pt = inkPoint(e2, null); eraseAt(pt[0], pt[1]); continue; }
+      const last = drawing.p[drawing.p.length-1];
+      const pt = inkPoint(e2, last);
+      if(Math.hypot(pt[0]-last[0], pt[1]-last[1]) < 1.5) continue;
+      drawing.p.push(pt);
+    }
+    if(!drawing.erase) redrawInk();
+  });
+  const end = ev => {
+    if(!drawing || ev.pointerId !== drawing.id) return;
+    const e = curEntry();
+    if(!drawing.erase){
+      const s = {w: drawing.w, p: drawing.p.map(q => [q[0], q[1], q[2]])};
+      if(s.p.length > 1){   // 書き終わりは少し抜く
+        const n = s.p.length, m = Math.min(4, n-1);
+        for(let i=0;i<m;i++){ const q = s.p[n-1-i]; q[2] = Math.round(q[2] * (0.45 + 0.55*i/m) * 100)/100; }
+      }
+      e.strokes.push(s);
+    }
+    drawing = null; strokeEndAt = performance.now(); redrawInk(); inkChanged();
+  };
+  c.addEventListener('pointerup', end);
+  c.addEventListener('pointercancel', end);
+  c.addEventListener('lostpointercapture', end);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+  document.querySelector('#editView .bar').addEventListener('click', swallowBarTap, true);
+  window.addEventListener('resize', () => { if(curEntry() && curEntry().type === 'ink') fitInk(); });
+}
+function setTool(t){
+  tool = t;
+  $('tPen').setAttribute('aria-pressed', t === 'pen');
+  $('tErase').setAttribute('aria-pressed', t === 'erase');
+}
+function toggleBold(){ bold = !bold; $('tBold').setAttribute('aria-pressed', bold); setTool('pen'); }
+function undoInk(){
+  const e = curEntry(); if(!e || !undoStack.length) return;
+  e.strokes = JSON.parse(undoStack.pop()); redrawInk(); inkChanged();
+}
+/* 縮小図用のSVG（太さは平均で） */
+function inkSVG(strokes){
+  const d = (strokes||[]).map(s => {
+    const pts = s.p.length === 1 ? [s.p[0], [s.p[0][0]+0.1, s.p[0][1]]] : s.p;
+    const avg = pts.reduce((a,q)=>a+q[2],0) / pts.length;
+    return `<path stroke-width="${(inkWidth(s.w, avg)*1.6).toFixed(1)}" d="M${pts.map(q=>q[0]+' '+q[1]).join(' L')}"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${INK_W} ${INK_H}" preserveAspectRatio="xMidYMin meet">${d}</svg>`;
+}
+function inkPNG(strokes){
+  return new Promise(res => {
+    const c = document.createElement('canvas'); c.width = INK_W; c.height = INK_H;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,INK_W,INK_H);
+    drawStrokes(ctx, strokes || [], 1);
+    c.toBlob(async b => res(new Uint8Array(await b.arrayBuffer())), 'image/png');
+  });
+}
+
+/* ---------- Word 書き出し ---------- */
+function startSelect(){
+  selecting = true; selected.clear();
+  $('selbar').hidden = false;
+  renderList();
+}
+function endSelect(){
+  selecting = false; selected.clear();
+  $('selbar').hidden = true;
+  renderList();
+}
+function selectAll(){
+  const all = shown.every(e => selected.has(e.id));
+  shown.forEach(e => all ? selected.delete(e.id) : selected.add(e.id));
+  renderList();
+}
+async function exportSelected(){
+  const list = entries.filter(e => selected.has(e.id));
+  if(!list.length){ alert('頁を選んで'); return; }
+  endSelect();
+  await exportDocx(list);
+}
+function exportCurrent(){
+  const e = entries.find(x=>x.id===currentId);
+  if(e) exportDocx([e]);
+}
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320^(c>>>1) : c>>>1; t[n]=c>>>0; }
+  return t;
+})();
+function crc32(buf){
+  let c = 0xFFFFFFFF;
+  for(let i=0;i<buf.length;i++) c = CRC_TABLE[(c^buf[i])&0xFF] ^ (c>>>8);
+  return (c^0xFFFFFFFF)>>>0;
+}
+/* 無圧縮ZIP（docxの入れ物） */
+function makeZip(files){
+  const enc = new TextEncoder();
+  const chunks = [], central = [];
+  let offset = 0;
+  for(const f of files){
+    const name = enc.encode(f.name), data = f.bytes || enc.encode(f.text), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true);
+    h.setUint16(8,0,true); h.setUint16(10,0,true); h.setUint16(12,0x21,true);
+    h.setUint32(14,crc,true); h.setUint32(18,data.length,true); h.setUint32(22,data.length,true);
+    h.setUint16(26,name.length,true); h.setUint16(28,0,true);
+    chunks.push(new Uint8Array(h.buffer), name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true);
+    c.setUint16(10,0,true); c.setUint16(12,0,true); c.setUint16(14,0x21,true);
+    c.setUint32(16,crc,true); c.setUint32(20,data.length,true); c.setUint32(24,data.length,true);
+    c.setUint16(28,name.length,true); c.setUint16(30,0,true); c.setUint16(32,0,true);
+    c.setUint16(34,0,true); c.setUint16(36,0,true); c.setUint32(38,0,true); c.setUint32(42,offset,true);
+    central.push(new Uint8Array(c.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const cdSize = central.reduce((s,a)=>s+a.length,0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true);
+  e.setUint32(12,cdSize,true); e.setUint32(16,offset,true);
+  return new Blob([...chunks, ...central, new Uint8Array(e.buffer)],
+    {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+function x(s){
+  return String(s).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function run(text, o={}){
+  const sz = o.sz || 21;
+  return `<w:r><w:rPr><w:rFonts w:ascii="Yu Mincho" w:hAnsi="Yu Mincho" w:eastAsia="Yu Mincho"/>`
+    + (o.b ? '<w:b/>' : '') + (o.color ? `<w:color w:val="${o.color}"/>` : '')
+    + `<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/></w:rPr><w:t xml:space="preserve">${x(text)}</w:t></w:r>`;
+}
+function para(runs, after=0, line=0){
+  const sp = `<w:spacing w:after="${after}"${line?` w:line="${line}" w:lineRule="auto"`:''}/>`;
+  return `<w:p><w:pPr>${sp}</w:pPr>${runs}</w:p>`;
+}
+function inkDrawing(n, cx = 4680000, cy = 6240000){
+  return `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">`
+    + `<wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="手書き${n}"/>`
+    + `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`
+    + `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    + `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    + `<pic:nvPicPr><pic:cNvPr id="${n}" name="image${n}"/><pic:cNvPicPr/></pic:nvPicPr>`
+    + `<pic:blipFill><a:blip r:embed="rImg${n}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`
+    + `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>`
+    + `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+}
+function dataUrlBytes(u){
+  const b = atob(u.slice(u.indexOf(',') + 1)), a = new Uint8Array(b.length);
+  for(let i=0;i<b.length;i++) a[i] = b.charCodeAt(i);
+  return a;
+}
+function buildDocx(list, images={}, pics={}){
+  const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+    + ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"';
+  const media = [];
+  const body = [...list].sort((a,b)=>a.date.localeCompare(b.date) || bornAt(a) - bornAt(b)).map((e,i) => {
+    let main;
+    if(e.type === 'ink' && images[e.id]){
+      const n = media.length + 1; media.push({bytes:images[e.id], ext:'png'});
+      main = inkDrawing(n);
+    } else main = (e.body||'').split('\n').map(l => para(run(l), 0, 360)).join('');
+    for(const id of (e.photos||[])){
+      const ph = pics[id]; if(!ph) continue;
+      const n = media.length + 1; media.push({bytes:dataUrlBytes(ph.src), ext:'jpeg'});
+      const maxW = 4680000, maxH = 5400000;
+      const k = Math.min(maxW / ph.w, maxH / ph.h);
+      main += para('', 120) + inkDrawing(n, Math.round(ph.w * k), Math.round(ph.h * k));
+    }
+    return (i ? '<w:p><w:r><w:br w:type="page"/></w:r></w:p>' : '')
+      + para(run(e.title || '無題', {b:true, sz:32}), 120)
+      + para(run(fmtLong(e.date), {color:'777777', sz:20}), 360)
+      + main;
+  }).join('');
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<w:document ${NS}><w:body>${body}`
+    + `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>`
+    + `<w:pgMar w:top="1701" w:right="1701" w:bottom="1701" w:left="1701" w:header="851" w:footer="992" w:gutter="0"/>`
+    + `</w:sectPr></w:body></w:document>`;
+  const types = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
+    + `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`
+    + `<Default Extension="xml" ContentType="application/xml"/>`
+    + `<Default Extension="png" ContentType="image/png"/>`
+    + `<Default Extension="jpeg" ContentType="image/jpeg"/>`
+    + `<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>`
+    + `</Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+    + `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>`
+    + `</Relationships>`;
+  const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
+    + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
+    + media.map((m,i) => `<Relationship Id="rImg${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${i+1}.${m.ext}"/>`).join('')
+    + `</Relationships>`;
+  return makeZip([
+    {name:'[Content_Types].xml', text:types},
+    {name:'_rels/.rels', text:rels},
+    {name:'word/document.xml', text:doc},
+    {name:'word/_rels/document.xml.rels', text:docRels},
+    ...media.map((m,i) => ({name:`word/media/image${i+1}.${m.ext}`, bytes:m.bytes})),
+  ]);
+}
+async function exportDocx(list){
+  const dates = list.map(e=>e.date).sort();
+  const name = dates[0] === dates[dates.length-1]
+    ? `日記-${dates[0]}.docx` : `日記-${dates[0]}_${dates[dates.length-1]}.docx`;
+  const images = {};
+  for(const e of list) if(e.type === 'ink') images[e.id] = await inkPNG(e.strokes);
+  download(buildDocx(list, images, usedPhotos(list)), name);
+}
+
+/* ---------- 控え（JSON） ---------- */
+/* スマホでは共有シート（「ファイルに保存」など）で渡す。使えなければふつうに保存 */
+async function download(blob, name){
+  const touch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+  if(touch && navigator.share && navigator.canShare){
+    try {
+      const f = new File([blob], name, {type: blob.type || 'application/octet-stream'});
+      if(navigator.canShare({files:[f]})){ await navigator.share({files:[f], title:name}); return; }
+    } catch(e){ if(e && e.name === 'AbortError') return; }
+  }
+  plainDownload(blob, name);
+}
+function plainDownload(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+function exportData(){
+  download(new Blob([JSON.stringify({entries, photos:usedPhotos()}, null, 1)], {type:'application/json'}), `diary-${today()}.json`);
+}
+function importData(input){
+  const f = input.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const raw = JSON.parse(r.result);
+      const data = readState(raw);
+      if(!data) throw 0;
+      if(raw.photos && typeof raw.photos === 'object') for(const k in raw.photos) if(!photos[k]) photos[k] = raw.photos[k];
+      const ids = new Set(entries.map(e=>e.id));
+      let n = 0;
+      data.entries.forEach(e => { if(e && e.id && !ids.has(e.id)){ torn.delete(e.id); entries.push(e); n++; } });
+      persist(); renderList();
+      alert(`${n}件読み込んだ`);
+    }catch(e){ alert('読み込めないファイル'); }
+    input.value = '';
+  };
+  r.readAsText(f);
+}
+
+document.addEventListener('keydown', e => {
+  if((e.ctrlKey||e.metaKey) && e.key==='s'){ e.preventDefault(); clearTimeout(saveTimer); persist(); }
+});
+
+load();
+renderList();
+setupInk();
+initBind();
+{
+  const [y,m,d] = DIARY_VERSION_DATE.split('-').map(Number);
+  const yk = String(y).split('').map(c => KANJI[+c]).join('');
+  $('verLine').textContent = `${yk}年${kan(m)}月${kan(d)}日　第${kan(DIARY_VERSION)}版`;
+}
+if(HOSTED) showDistribution();
+else setTimeout(() => checkUpdate(false), 1500);
+loadPhotos();
+/* 閉じる・アプリを切り替える瞬間にも書きかけを保存 */
+function flushSave(){
+  if(!saveTimer) return;
+  clearTimeout(saveTimer); saveTimer = null;
+  try { persist(); } catch(e){}
+}
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if(document.hidden) flushSave(); });
+</script>
+</body>
+</html>
