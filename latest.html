@@ -347,7 +347,7 @@ button{background:none;border:none;cursor:pointer;padding:6px 4px}
 /* 何も描画する前のページ全体を控えておく（ファイルに綴じるときの元） */
 const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
 /* 版。直すたびに番号を一つ上げる。古い日記帳はこの番号で見分ける */
-const DIARY_VERSION = 15;
+const DIARY_VERSION = 17;
 const DIARY_VERSION_DATE = '2026-10-15';
 /* 表紙はファイルの見た目用。ブラウザで開いたら外す */
 /* 表紙の題字を一覧の見出しにも使う */
@@ -588,22 +588,30 @@ function fillTemplate(text){
   const i = text.indexOf(DATA_TAG), j = text.indexOf('</' + 'script>', i);
   return text.slice(0, i + DATA_TAG.length) + json + text.slice(j);
 }
-async function checkUpdate(manual){
-  if(HOSTED) return;
-  let latest;
-  try { latest = await fetchLatest(); }
-  catch(e){
-    if(manual) alert('最新版を取りに行けなかった。電波のいい所で、もう一度押して');
-    return;
-  }
-  if(latest.ver <= DIARY_VERSION){
-    if(manual) alert(`これが最新（第${kan(DIARY_VERSION)}版）`);
-    return;
-  }
-  if(!manual){ $('updBtn').textContent = `新しい版がある（第${kan(latest.ver)}版）`; return; }
+/* 共有シートは「押した直後」でないと出せない。だから最新版は先に取ってきておき、
+   押した瞬間に手元のものを渡す（押してから取りに行くと、待つ間に共有シートが出せなくなる） */
+let latestCache = null;
+function saveUpdate(latest){
   flushSave();
-  download(new Blob([fillTemplate(latest.text)], {type:'text/html'}), 'diary.html');
-  setTimeout(() => alert(`第${kan(latest.ver)}版にした。保存したファイルを開いて、そっちを使って（番号も中身もそのまま）`), 300);
+  // 名前に版を入れる。ダウンロードで「diary 2」のように勝手に名前を変えられても、どれが最新か一目でわかる
+  download(new Blob([fillTemplate(latest.text)], {type:'text/html'}), `日記帳（第${kan(latest.ver)}版）.html`);
+  $('updBtn').textContent = '更新を確かめる';
+}
+function checkUpdate(manual){
+  if(HOSTED) return;
+  if(manual && latestCache && latestCache.ver > DIARY_VERSION){ saveUpdate(latestCache); return; }
+  fetchLatest().then(latest => {
+    if(latest.ver <= DIARY_VERSION){
+      latestCache = null;
+      if(manual) alert(`これが最新（第${kan(DIARY_VERSION)}版）`);
+      return;
+    }
+    latestCache = latest;
+    $('updBtn').textContent = `新しい版がある（第${kan(latest.ver)}版）押して保存`;
+    if(manual) alert(`第${kan(latest.ver)}版がある。もう一度押すと保存できる`);
+  }).catch(() => {
+    if(manual) alert('最新版を取りに行けなかった。電波のいい所で、もう一度押して');
+  });
 }
 /* 配布所として開かれたときは、日記は書かせず、新しい日記帳を作る入り口だけ出す */
 function showDistribution(){
@@ -618,7 +626,8 @@ function showDistribution(){
   $('distVer').textContent = $('verLine').textContent;
 }
 function downloadSelf(){
-  download(new Blob([serialize({savedAt:Date.now(), entries, deleted:[...torn]})], {type:'text/html'}), 'diary.html');
+  const [, m, d] = today().split('-').map(Number);
+  download(new Blob([serialize({savedAt:Date.now(), entries, deleted:[...torn]})], {type:'text/html'}), `日記帳（${m}月${d}日 綴じ）.html`);
 }
 
 /* ---------- 日付まわり ---------- */
