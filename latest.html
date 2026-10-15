@@ -293,8 +293,6 @@ button{background:none;border:none;cursor:pointer;padding:6px 4px}
       <button onclick="document.getElementById('file').click()">控えを読み込む</button>
       <input type="file" id="file" accept=".json" hidden onchange="importData(this)">
       <button class="bind" id="updBtn" onclick="checkUpdate(true)">更新を確かめる</button>
-      <button onclick="$('upIn').click()">古い日記帳を新しい版にする</button>
-      <input type="file" id="upIn" accept=".html,.htm,.txt,text/html,text/plain" hidden onchange="upgradeBook(this)">
       <div class="bind-status" id="bindStatus"></div>
       <div class="colophon" id="verLine"></div>
     </div>
@@ -349,7 +347,7 @@ button{background:none;border:none;cursor:pointer;padding:6px 4px}
 /* 何も描画する前のページ全体を控えておく（ファイルに綴じるときの元） */
 const PRISTINE = '<!doctype html>\n' + document.documentElement.outerHTML;
 /* 版。直すたびに番号を一つ上げる。古い日記帳はこの番号で見分ける */
-const DIARY_VERSION = 14;
+const DIARY_VERSION = 15;
 const DIARY_VERSION_DATE = '2026-10-15';
 /* 表紙はファイルの見た目用。ブラウザで開いたら外す */
 /* 表紙の題字を一覧の見出しにも使う */
@@ -567,34 +565,6 @@ function makeBlankBook(){
   const html = serialize({savedAt:0, entries:[]}, newBookId());
   download(new Blob([html], {type:'text/html'}), '日記帳.html');
 }
-/* 古い日記帳ファイルを読み、中身（番号・頁・破いた印・写真）をそのままこの版に移して保存し直す */
-function upgradeBook(input){
-  const f = input.files[0]; input.value = ''; if(!f) return;
-  const r = new FileReader();
-  r.onload = () => {
-    const text = String(r.result);
-    const m = text.match(/<script type="application\/json" id="diary-data">([\s\S]*?)<\/script>/);
-    if(!m){ alert('日記帳のファイルではないみたい'); return; }
-    let d;
-    try { d = JSON.parse(m[1]); } catch(e){ alert('日記帳の中身を読めなかった'); return; }
-    const vm = text.match(/const DIARY_VERSION = (\d+)/);
-    const oldVer = vm ? +vm[1] : 0;
-    if(oldVer > DIARY_VERSION){
-      alert(`選んだ日記帳（第${kan(oldVer)}版）の方が、今開いているもの（第${kan(DIARY_VERSION)}版）より新しい。そっちを使って`);
-      return;
-    }
-    const st = readState(d) || {entries:[], deleted:[], savedAt:0};
-    const book = /^[a-z0-9]{8,40}$/.test(d.book || '') ? d.book : newBookId();
-    const html = serialize({savedAt: st.savedAt || 0, entries: st.entries, deleted: st.deleted,
-      photos: (d.photos && typeof d.photos === 'object') ? d.photos : {}}, book);
-    const ext = /\.txt$/i.test(f.name) ? 'txt' : 'html';
-    const name = f.name.replace(/\.(html?|txt)$/i, '') + '.' + ext;
-    download(new Blob([html], {type: ext === 'txt' ? 'text/plain' : 'text/html'}), name);
-    const was = oldVer ? `第${kan(oldVer)}版` : '番号のない古い版';
-    setTimeout(() => alert(`${was} → 第${kan(DIARY_VERSION)}版にした（頁${st.entries.length}枚、番号はそのまま）`), 300);
-  };
-  r.readAsText(f);
-}
 /* ---------- 更新 ---------- */
 const UPDATE_PAGE = 'https://h2yhtzkk8y-hash.github.io/diary/';
 const UPDATE_URL = UPDATE_PAGE + 'latest.html';
@@ -623,9 +593,7 @@ async function checkUpdate(manual){
   let latest;
   try { latest = await fetchLatest(); }
   catch(e){
-    if(manual && confirm('最新版を取りに行けなかった。配布所を開いて、自分でダウンロードする？\n（ダウンロードしたら、それを開いて「古い日記帳を新しい版にする」でこの日記帳を選ぶ）')){
-      window.open(UPDATE_PAGE, '_blank');
-    }
+    if(manual) alert('最新版を取りに行けなかった。電波のいい所で、もう一度押して');
     return;
   }
   if(latest.ver <= DIARY_VERSION){
